@@ -1,0 +1,95 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Stores user focus data and statistics.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "xp": { "type": "number" },
+        "level": { "type": "number" },
+        "streak": { "type": "number" },
+        "lastActiveDate": { "type": "string", "format": "date" },
+        "totalFocusTime": { "type": "number" },
+        "pomodorosCompleted": { "type": "number" },
+        "settings": {
+          "type": "object",
+          "properties": {
+            "workDuration": { "type": "number" },
+            "breakDuration": { "type": "number" },
+            "ambientSound": { "type": "string" }
+          }
+        }
+      },
+      "required": ["uid", "xp", "level", "totalFocusTime", "pomodorosCompleted"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "User tasks that can be focused on.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "completed": { "type": "boolean" },
+        "sessions": { "type": "number" },
+        "expectedSessions": { "type": "number" },
+        "category": { "type": "string", "enum": ["study", "personal", "health"] },
+        "priority": { "type": "string", "enum": ["high", "medium", "low"] },
+        "tags": { "type": "array" },
+        "deadline": { "type": "string", "format": "date" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "title", "completed", "sessions", "category", "priority"]
+    },
+    "Habit": {
+      "title": "Habit",
+      "description": "Daily habits to track.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "icon": { "type": "string" },
+        "streak": { "type": "number" },
+        "completedDates": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "title", "streak", "completedDates"]
+    },
+    "FocusSession": {
+      "title": "Focus Session",
+      "description": "Record of a completed Pomodoro session.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "taskId": { "type": "string" },
+        "duration": { "type": "number" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "xpEarned": { "type": "number" }
+      },
+      "required": ["id", "userId", "duration", "timestamp", "xpEarned"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User root document"
+    },
+    "/users/{userId}/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "User tasks"
+    },
+    "/users/{userId}/sessions/{sessionId}": {
+      "schema": "FocusSession",
+      "description": "Focus history"
+    },
+    "/users/{userId}/habits/{habitId}": {
+      "schema": "Habit",
+      "description": "User habits"
+    }
+  }
+}
