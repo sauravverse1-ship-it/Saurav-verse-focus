@@ -7,6 +7,21 @@ export interface UserProfile {
   xp: number;
   level: number;
   streak: number;
+  rank: string;
+  allTimeXP: number;
+  unlockedAchievements: string[];
+  dailyChallenges: {
+    id: string;
+    type: string;
+    title: string;
+    description: string;
+    xp: number;
+    progress: number;
+    goal: number;
+    completed: boolean;
+    date: string;
+  }[];
+  streakShields: number;
   lastActiveDate: string;
   totalFocusTime: number;
   pomodorosCompleted: number;
@@ -31,11 +46,19 @@ export interface UserProfile {
     ambientSound: 'rain' | 'lofi' | 'white' | 'none';
     notificationSound: 'default' | 'bell' | 'none';
     autoStartNextSession: boolean;
-    isDopamineDetox: boolean;
     language?: string;
     use24Hr?: boolean;
     startWeekSunday?: boolean;
   };
+}
+
+export interface Achievement {
+  id: string;
+  name: string;
+  description: string;
+  xpReward: number;
+  icon: string;
+  category: 'focus' | 'streak' | 'habit' | 'special';
 }
 
 export interface Task {

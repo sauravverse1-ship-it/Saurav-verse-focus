@@ -19,26 +19,22 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow get: if isOwner(userId);
-      allow create: if isOwner(userId) && 
-        request.resource.data.keys().hasAll(['uid', 'xp', 'level', 'totalFocusTime', 'pomodorosCompleted']) &&
-        request.resource.data.xp == 0;
-      allow update: if isOwner(userId) && 
-        request.resource.data.diff(resource.data).affectedKeys().hasAny(['xp', 'level', 'streak', 'lastActiveDate', 'totalFocusTime', 'pomodorosCompleted', 'settings', 'displayName', 'photoURL']);
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
 
       match /tasks/{taskId} {
         allow list, get: if isOwner(userId);
-        allow create: if isOwner(userId) && isValidId(taskId);
-        allow update, delete: if isOwner(userId);
+        allow create, update, delete: if isOwner(userId);
       }
 
       match /sessions/{sessionId} {
         allow list, get: if isOwner(userId);
-        allow create: if isOwner(userId) && isValidId(sessionId);
+        allow create: if isOwner(userId);
       }
 
       match /habits/{habitId} {
         allow list, get: if isOwner(userId);
-        allow create, update, delete: if isOwner(userId) && isValidId(habitId);
+        allow create, update, delete: if isOwner(userId);
       }
     }
   }

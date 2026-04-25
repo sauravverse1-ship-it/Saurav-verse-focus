@@ -17,9 +17,9 @@ export const DeveloperSection: React.FC = () => {
     });
     tl.from('.dev-bg-particles', { opacity: 0, duration: 1.5 }, 0)
       .from('.dev-photo-wrap', { scale: 0.3, opacity: 0, duration: 1.2, ease: "expo.out" }, 0.3)
-      .from('.dev-ring-svg', { rotate: -180, duration: 1.5, ease: "power3.out", transformOrigin: "center" }, 0.3)
+      .from('.dev-ring-svg', { rotate: -180, duration: 1.5, ease: "power2.out", transformOrigin: "center" }, 0.3)
       .from('.dev-name', { y: 40, opacity: 0, filter: 'blur(12px)', duration: 1, ease: "expo.out" }, 0.7)
-      .from('.dev-role', { y: 20, opacity: 0, duration: 0.7, ease: "power3.out" }, 0.9)
+      .from('.dev-role', { y: 20, opacity: 0, duration: 0.7, ease: "power2.out" }, 0.9)
       .from('.dev-bio', { y: 20, opacity: 0, duration: 0.7 }, 1.1)
       .from('.dev-tag', { scale: 0, opacity: 0, stagger: 0.08, ease: "back.out(2)", duration: 0.5 }, 1.3)
       .from('.dev-cta', { y: 30, opacity: 0, scale: 0.9, duration: 0.8, ease: "back.out(1.7)" }, 1.7)
@@ -31,6 +31,11 @@ export const DeveloperSection: React.FC = () => {
       {/* Background Layers */}
       <div className="absolute inset-0 z-0">
         <div className="absolute inset-0 bg-gradient-to-tr from-[#7b5fe8]/10 to-[#00ffe0]/10 blur-3xl opacity-30" />
+        
+        {/* Cinematic Grit/Grain Background Overlay */}
+        <div className="absolute inset-0 opacity-[0.05] pointer-events-none mix-blend-overlay" 
+             style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Ffilter id='n' %3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")` }} />
+
         <div className="dev-bg-particles absolute inset-0 opacity-30">
            {/* Drastically reduced particles to prevent initial render lag */}
            {[...Array(20)].map((_, i) => (
@@ -47,10 +52,20 @@ export const DeveloperSection: React.FC = () => {
 
       <div className="relative z-20 flex flex-col items-center text-center max-w-3xl px-6">
         {/* Profile Photo */}
-        <div className="dev-photo-wrap relative w-40 h-40 md:w-56 md:h-56 mb-8 group">
-          <div className="absolute inset-0 rounded-full border-2 border-[rgba(0,255,224,0.3)] shadow-[0_0_0_8px_rgba(0,255,224,0.06),0_0_0_16px_rgba(0,255,224,0.03),0_0_60px_rgba(0,255,224,0.15)] overflow-hidden transition-transform duration-500 ease-out group-hover:scale-105 group-hover:shadow-[0_0_0_8px_rgba(0,255,224,0.1),0_0_0_16px_rgba(0,255,224,0.05),0_0_80px_rgba(0,255,224,0.25)]">
-            <div className="w-full h-full bg-md-surface-2 flex items-center justify-center text-4xl font-display text-md-primary">SV</div>
+        <div className="dev-photo-wrap relative w-48 h-48 md:w-64 md:h-64 mb-8 group">
+          <div className="absolute inset-0 rounded-full border-4 border-[rgba(0,255,224,0.4)] shadow-[0_0_0_12px_rgba(0,255,224,0.08),0_0_0_24px_rgba(0,255,224,0.04),0_0_80px_rgba(0,255,224,0.3)] overflow-hidden transition-all duration-700 ease-out group-hover:scale-105 group-hover:shadow-[0_0_0_12px_rgba(0,255,224,0.15),0_0_0_24px_rgba(0,255,224,0.08),0_0_100px_rgba(0,255,224,0.4)]">
+            <img 
+              src="https://storage.googleapis.com/bit-p-storage-v1-production-09c0/865131783853/ais-attachments/8b4952d7-9ea8-4b72-9721-e37604f86d63/1745591560943.png" 
+              alt="Saurav Verse" 
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                e.currentTarget.src = "https://api.dicebear.com/7.x/avataaars/svg?seed=Saurav";
+              }}
+            />
           </div>
+          {/* Neon ring animation */}
+          <div className="absolute -inset-4 rounded-full border border-md-primary/20 animate-[spin_10s_linear_infinite] pointer-events-none" />
+          <div className="absolute -inset-8 rounded-full border border-md-secondary/10 animate-[spin_15s_linear_infinite_reverse] pointer-events-none" />
           <svg className="dev-ring-svg absolute -inset-6 w-[calc(100%+3rem)] h-[calc(100%+3rem)] pointer-events-none animate-[spin_20s_linear_infinite] group-hover:animate-[spin_10s_linear_infinite]" viewBox="0 0 100 100">
             <circle cx="50" cy="50" r="48" fill="none" stroke="var(--md-primary)" strokeWidth="1" strokeDasharray="4 8" opacity="0.3" />
           </svg>

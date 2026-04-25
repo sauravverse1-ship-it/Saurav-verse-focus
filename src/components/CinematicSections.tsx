@@ -28,13 +28,13 @@ export const HeroSection: React.FC<{ onExplore: () => void }> = ({ onExplore }) 
     // Background cinematic zoom
     tl.fromTo(bgRef.current, 
       { scale: 1.12 }, 
-      { scale: 1, duration: 2.8, ease: "power2.out" }
+      { scale: 1, duration: 2.8, ease: "power2.inOut" }
     , 0);
 
     // Fog layers drift in
     tl.fromTo('.fog-layer', 
       { opacity: 0, scale: 0.8 },
-      { opacity: 1, scale: 1, duration: 2, stagger: 0.3, ease: "power3.out" }
+      { opacity: 1, scale: 1, duration: 2, stagger: 0.3, ease: "power2.out" }
     , 0.2);
 
     // Card rise
@@ -58,7 +58,7 @@ export const HeroSection: React.FC<{ onExplore: () => void }> = ({ onExplore }) 
       y: 20, opacity: 0,
     }, {
       y: 0, opacity: 1,
-      duration: 0.6, ease: "power3.out"
+      duration: 0.6, ease: "power2.out"
     }, 1.6);
 
     tl.fromTo('.hero-btn', {

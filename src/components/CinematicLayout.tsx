@@ -32,7 +32,7 @@ export const TiltCard: React.FC<TiltCardProps> = ({ children, className, intensi
         rotateY: cx * intensity * 2,
         z: 30, scale: 1.02,
         duration: 0.35,
-        ease: "power2.out"
+        ease: "power2"
       });
 
       if (shineRef.current) {

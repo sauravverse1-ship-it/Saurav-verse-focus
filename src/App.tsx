@@ -7,7 +7,7 @@ import {
   Play, Pause, RotateCcw, CheckCircle, Home, Timer, BarChart2, User as UserIcon, 
   Plus, Settings, Volume2, VolumeX, Maximize2, Minimize2, Award, Zap, 
   CloudRain, Coffee, Wind, LogOut, BookOpen, Heart, Activity, Calendar, 
-  Trash2, Edit, ChevronRight, Hash, Clock, Brain, Target, Flame, Sparkles, MessageSquare, Battery, Droplets, Moon, Utensils, ShieldCheck, ThumbsUp, ThumbsDown, SkipForward
+  Trash2, Edit, ChevronRight, Hash, Clock, Brain, Target, Flame, Sparkles, MessageSquare, Battery, Droplets, Moon, Utensils, ShieldCheck, ThumbsUp, ThumbsDown, SkipForward, Star, Music, AlertCircle
 } from 'lucide-react';
 import { getAICoachResponse, getAIQuote, getAIHabitSuggestions } from './services/geminiService';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
@@ -25,6 +25,10 @@ import { HabitHeatMap, HabitStreakInfo } from './components/HabitStats';
 import { AddTaskModal } from './components/AddTaskModal';
 import { AddHabitModal } from './components/AddHabitModal';
 import { AdaptiveWidgetGrid } from './components/AdaptiveWidgets';
+import { RankUpCeremony, AchievementUnlock, XPLabel, ComboDisplay, ConfettiCanvas, launchConfetti, LegendText, TickingNumber } from './components/GamificationOverlay';
+import { useGamification } from './lib/useGamification';
+import { getRank, getXPProgress, getDailyChallenges, ACHIEVEMENTS } from './lib/gamification';
+import { StreakWidget, ChallengesWidget, AchievementsModal } from './components/GamificationWidgets';
 import { playTick, playWhoosh, playBell } from './lib/audio';
 import { cn } from './lib/utils';
 import { UserProfile, Task, Habit, FocusSession } from './types';
@@ -68,13 +72,77 @@ const CATEGORIES = {
 };
 
 // --- Ambient Sounds ---
-const AMBIENT_TRACKS = {
-  rain: 'https://actions.google.com/sounds/v1/water/rain_on_roof.ogg',
-  lofi: 'https://actions.google.com/sounds/v1/ambiences/coffee_shop.ogg', // better alternative for lofi vibes
-  white: 'https://actions.google.com/sounds/v1/water/waves_crashing_on_rock_beach.ogg',
-};
+interface AmbientTrack {
+  id: string;
+  label: string;
+  category: 'nature' | 'focus' | 'atmosphere';
+  icon: string;
+  url: string;
+}
+
+const AMBIENT_CATEGORIES = [
+  { id: 'nature', label: 'Nature', icon: 'CloudRain' },
+  { id: 'focus', label: 'Focus', icon: 'Brain' },
+  { id: 'atmosphere', label: 'Atmosphere', icon: 'Music' }
+];
+
+const AMBIENT_DATA: AmbientTrack[] = [
+  { id: 'rain', label: 'Rainfall', category: 'nature', icon: 'CloudRain', url: 'https://actions.google.com/sounds/v1/water/rain_on_roof.ogg' },
+  { id: 'forest', label: 'Forest', category: 'nature', icon: 'Activity', url: 'https://actions.google.com/sounds/v1/ambiences/morning_forest.ogg' },
+  { id: 'ocean', label: 'Waves', category: 'nature', icon: 'Droplets', url: 'https://actions.google.com/sounds/v1/water/waves_clashing.ogg' },
+  { id: 'stream', label: 'Stream', category: 'nature', icon: 'Droplets', url: 'https://actions.google.com/sounds/v1/water/mountain_stream.ogg' },
+  { id: 'birds', label: 'Birds', category: 'nature', icon: 'Activity', url: 'https://actions.google.com/sounds/v1/ambiences/morning_forest.ogg' },
+  { id: 'lofi', label: 'Lofi Cafe', category: 'atmosphere', icon: 'Coffee', url: 'https://actions.google.com/sounds/v1/ambiences/coffee_shop.ogg' },
+  { id: 'jazz', label: 'Jazz Bar', category: 'atmosphere', icon: 'Music', url: 'https://actions.google.com/sounds/v1/ambiences/quiet_restaurant.ogg' },
+  { id: 'study', label: 'Industrial', category: 'focus', icon: 'Hash', url: 'https://actions.google.com/sounds/v1/ambiences/industrial_hum_loop.ogg' },
+  { id: 'white', label: 'White Noise', category: 'focus', icon: 'Wind', url: 'https://actions.google.com/sounds/v1/water/waves_crashing_on_rock_beach.ogg' },
+  { id: 'cyberpunk', label: 'Synth Hum', category: 'atmosphere', icon: 'Zap', url: 'https://actions.google.com/sounds/v1/science_fiction/teleport_beam.ogg' },
+];
+
+const AMBIENT_TRACKS = AMBIENT_DATA.reduce((acc, track) => {
+  acc[track.id] = track.url;
+  return acc;
+}, {} as Record<string, string>);
 
 // --- Components ---
+
+const XPBar = ({ profile }: { profile: UserProfile | null }) => {
+  if (!profile) return null;
+  const rank = getRank(profile.xp);
+  const { currentXP, nextLevelXP, progress } = getXPProgress(profile.xp);
+
+  return (
+    <div className="w-full px-2 py-4 space-y-2 mt-auto">
+      <div className="flex items-center justify-between px-1">
+        <div className="flex items-center gap-2">
+          <span className="text-xl">{rank.icon}</span>
+          <div className="flex flex-col">
+            <span className="text-[10px] font-mono leading-none tracking-tighter opacity-50 uppercase">Current Rank</span>
+            <span className="font-display text-sm uppercase text-white leading-tight">
+              {rank.id === 'legend' ? <LegendText text={rank.name} className="text-sm" /> : rank.name}
+            </span>
+          </div>
+        </div>
+        <span className="font-mono text-[10px] opacity-60"><TickingNumber value={Math.round(progress)} />%</span>
+      </div>
+      
+      <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden relative group">
+        <motion.div 
+          initial={{ width: 0 }}
+          animate={{ width: `${progress}%` }}
+          className={cn("h-full relative z-10", rank.id === 'legend' ? 'animate-hue-rotate' : '')}
+          style={{ background: rank.id === 'legend' ? 'linear-gradient(90deg, #7b5fe8, #00ffe0, #ff4060, #d4a843)' : rank.color }}
+        />
+        <div className="absolute inset-0 bg-white/5 blur-[2px]" />
+      </div>
+      
+      <div className="flex justify-between items-center px-1">
+        <span className="text-[9px] font-mono opacity-40"><TickingNumber value={currentXP} /> XP</span>
+        <span className="text-[9px] font-mono opacity-40"><TickingNumber value={nextLevelXP} /> XP</span>
+      </div>
+    </div>
+  );
+};
 
 const Button = ({ className, children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
   <button className={cn("material-button-primary", className)} {...props}>
@@ -86,28 +154,25 @@ const NavButton = ({ active, icon: Icon, label, onClick }: { active: boolean, ic
   <button 
     onClick={() => { playTick(); onClick(); }}
     onMouseEnter={playTick}
-    className="group relative flex items-center md:flex-row flex-col gap-1 md:gap-4 md:w-full md:px-4 md:py-3 transition-all duration-300 w-16 h-16 md:h-auto justify-center md:justify-start"
-  >
-    {active && (
-      <motion.div 
-        layoutId="nav-rail-indicator-mobile"
-        className="md:hidden absolute top-0 w-8 h-1.5 bg-md-primary rounded-b-full shadow-[0_0_15px_var(--md-primary)]"
-      />
+    className={cn(
+      "group relative flex items-center md:flex-row flex-col gap-1 md:gap-4 md:w-full md:px-4 md:py-3 transition-all duration-300 h-16 md:h-auto justify-center md:justify-start px-2",
+      "md:w-full"
     )}
+  >
     <div className={cn(
-      "relative z-10 w-full h-8 md:w-16 md:h-10 flex items-center justify-center rounded-full transition-all duration-300",
-      active ? "md:bg-md-primary-container text-md-primary md:text-md-on-primary-cont" : "text-md-on-surface-variant group-hover:text-white"
+      "relative z-10 w-12 h-8 md:w-16 md:h-10 flex items-center justify-center rounded-full transition-all duration-300 nav-icon-wrap",
+      active ? "bg-md-primary-container text-md-primary" : "text-md-on-surface-variant group-hover:text-white"
     )}>
       {active && (
         <motion.div 
-          layoutId="nav-rail-indicator"
-          className="hidden md:block absolute inset-0 bg-md-primary-container rounded-full shadow-[0_0_15px_rgba(0,80,74,0.5)] -z-10"
+          layoutId="nav-pill-bg"
+          className="absolute inset-0 bg-md-primary-container rounded-full shadow-[0_0_20px_rgba(0,255,224,0.2)] -z-10"
         />
       )}
-      <Icon className={cn("w-5 h-5", active && "drop-shadow-[0_0_10px_var(--md-primary)]")} strokeWidth={active ? 2.5 : 2} />
+      <Icon className={cn("w-5 h-5 transition-transform duration-300", active && "scale-110 drop-shadow-[0_0_10px_var(--md-primary)]")} strokeWidth={active ? 2.5 : 2} />
     </div>
     <span className={cn(
-      "text-[10px] md:text-sm font-mono uppercase tracking-[0.1em] font-bold transition-all duration-300 whitespace-nowrap",
+      "text-[8px] md:text-sm font-mono uppercase tracking-[0.1em] font-bold transition-all duration-300 whitespace-nowrap",
       active ? "text-white opacity-100" : "text-md-on-surface-variant md:opacity-60 md:group-hover:opacity-100 opacity-60"
     )}>
       {label}
@@ -168,12 +233,33 @@ export default function App() {
   const [isAddHabitModalOpen, setIsAddHabitModalOpen] = useState(false);
   const [streakAchieved, setStreakAchieved] = useState<number | null>(null);
   const [taskSortKey, setTaskSortKey] = useState<'deadline' | 'priority' | 'urgent'>('priority');
+  const [sessionIntention, setSessionIntention] = useState("");
+  const [showIntentionInput, setShowIntentionInput] = useState(false);
+  const [distractions, setDistractions] = useState<number>(0);
+  const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
+  const [focusScore, setFocusScore] = useState<number | null>(null);
+  const [breakActivity, setBreakActivity] = useState<string>("");
+
+  const { 
+    xpLabels, 
+    awardXP, 
+    rankUp, 
+    setRankUp, 
+    unlockedAchievement, 
+    setUnlockedAchievement, 
+    combo,
+    awardBonus 
+  } = useGamification(profile, setProfile);
+
+  const [showAchievements, setShowAchievements] = useState(false);
 
   const openAddTaskModal = (cat: 'study' | 'health' | 'personal' = 'study') => {
     setAddTaskCategory(cat);
     setIsAddTaskModalOpen(true);
   };
-  const [ambientSound, setAmbientSound] = useState<'rain' | 'lofi' | 'white' | 'none'>('none');
+  const [ambientSound, setAmbientSound] = useState<string>('none');
+  const [ambientVolume, setAmbientVolume] = useState(0.5);
+  const [activeAmbientCategory, setActiveAmbientCategory] = useState<string>('nature');
   const soundRef = useRef<Howl | null>(null);
 
   // --- Auth & Data Sync ---
@@ -191,16 +277,41 @@ export default function App() {
           const snap = await getDoc(userDoc);
           if (snap.exists()) {
             console.log("Profile found:", snap.id);
-            setProfile(snap.data() as UserProfile);
+            const data = snap.data() as UserProfile;
+            const today = new Date().toISOString().split('T')[0];
+            
+            // Remove the specific annoying photo if it's set as DP
+            const annoyingPhotoURL = 'https://storage.googleapis.com/bit-p-storage-v1-production-09c0/865131783853/ais-attachments/8b4952d7-9ea8-4b72-9721-e37604f86d63/1745589410141.png';
+            if (data.photoURL === annoyingPhotoURL) {
+              const newAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.uid}`;
+              await updateDoc(userDoc, { photoURL: newAvatar });
+              data.photoURL = newAvatar;
+            }
+
+            if (data.lastActiveDate !== today) {
+              const newChallenges = getDailyChallenges(today);
+              await updateDoc(userDoc, { 
+                dailyChallenges: newChallenges,
+                lastActiveDate: today 
+              });
+              data.dailyChallenges = newChallenges;
+              data.lastActiveDate = today;
+            }
+            setProfile(data);
           } else {
             console.log("Creating new profile for:", u.uid);
             const newProfile: UserProfile = {
               uid: u.uid,
               displayName: u.isAnonymous ? 'Guest User' : (u.displayName || 'User'),
-              photoURL: u.photoURL || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + u.uid,
+              photoURL: `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.uid}`,
               xp: 0,
               level: 1,
               streak: 0,
+              rank: 'Novice',
+              allTimeXP: 0,
+              unlockedAchievements: [],
+              dailyChallenges: getDailyChallenges(new Date().toISOString().split('T')[0]),
+              streakShields: 0,
               lastActiveDate: new Date().toISOString().split('T')[0],
               totalFocusTime: 0,
               pomodorosCompleted: 0,
@@ -223,7 +334,6 @@ export default function App() {
                 workDuration: 50,
                 breakDuration: 10,
                 ambientSound: 'none',
-                isDopamineDetox: false,
                 notificationSound: 'default',
                 autoStartNextSession: false
               }
@@ -251,11 +361,7 @@ export default function App() {
           setLoading(false);
         }
       } else {
-        console.log("No user, trying anonymous sign-in...");
-        signInAnonymously(auth).catch((err) => {
-          console.error("Anonymous auth failed:", err);
-          setLoading(false);
-        });
+        setLoading(false);
       }
     });
 
@@ -279,20 +385,32 @@ export default function App() {
 
   // Ambient Sound Logic
   useEffect(() => {
-    if (ambientSound !== 'none' && isRunning && mode === 'study') {
-      if (soundRef.current) soundRef.current.stop();
-      soundRef.current = new Howl({
-        src: [AMBIENT_TRACKS[ambientSound as keyof typeof AMBIENT_TRACKS]],
+    let sound: Howl | null = null;
+    if (ambientSound !== 'none') {
+      sound = new Howl({
+        src: [AMBIENT_TRACKS[ambientSound]],
         loop: true,
-        volume: 0.5,
-        html5: true
+        volume: ambientVolume,
+        html5: true,
+        onplayerror: () => {
+          sound?.once('unlock', () => sound?.play());
+        }
       });
-      soundRef.current.play();
-    } else {
-      soundRef.current?.stop();
+      sound.play();
+      soundRef.current = sound;
     }
-    return () => soundRef.current?.stop();
-  }, [ambientSound, isRunning, mode]);
+    return () => {
+      sound?.stop();
+      sound?.unload();
+    };
+  }, [ambientSound]);
+
+  // Update volume in real-time
+  useEffect(() => {
+    if (soundRef.current) {
+      soundRef.current.volume(ambientVolume);
+    }
+  }, [ambientVolume]);
 
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
@@ -302,6 +420,9 @@ export default function App() {
 
   const handleTimerComplete = async () => {
     setIsRunning(false);
+    const score = calculateFocusScore();
+    setFocusScore(score);
+    
     if (typeof window !== 'undefined' && window.navigator.vibrate) window.navigator.vibrate([200, 100, 200]);
     if (profile?.settings?.notificationSound === 'bell') {
       playBell();
@@ -315,83 +436,112 @@ export default function App() {
       });
     }
 
-    if (mode === 'study') {
-      // Focus Completed
-      setSessionCount(prev => prev + 1);
-      const focusDuration = profile?.settings?.workDuration || 50;
-      setTotalFocusToday(prev => prev + focusDuration);
+    try {
+      if (mode === 'study') {
+        // Suggest activity based on stats
+        const water = profile?.health?.water || 0;
+        const sleep = profile?.health?.sleep || 0;
+        if (water < 8) setBreakActivity("Hydration Low! Drink 500ml water.");
+        else if (sleep < 6) setBreakActivity("Fatigue Alert! Try a 15-min power nap.");
+        else setBreakActivity("Focus high! Do 10 pushups to keep blood flowing.");
 
-      if (user && profile) {
-        const earnedXp = XP_PER_POMODORO;
-        const newXp = profile.xp + earnedXp;
-        const newLevel = Math.floor(newXp / 100) + 1;
-        const newFocus = (profile.skills?.focus || 0) + 2;
-        const newCons = (profile.skills?.consistency || 0) + 1;
+        const xpEarned = 100 + (score * 2);
+        await awardXP(xpEarned, 'focus', score > 90 ? 'FLAWLESS FOCUS' : 'SESSION COMPLETE');
+        launchConfetti({ origin: { x: 0.5, y: 0.4 }, count: 60 });
 
-        const userDoc = doc(db, 'users', user.uid);
-        await updateDoc(userDoc, {
-          xp: newXp,
-          level: newLevel,
-          pomodorosCompleted: increment(1),
-          totalFocusTime: increment(focusDuration),
-          'skills.focus': newFocus,
-          'skills.consistency': newCons
-        });
+        const focusDuration = profile?.settings?.workDuration || 50;
+        setTotalFocusToday(prev => prev + focusDuration);
+        setSessionCount(prev => prev + 1);
 
-        await addDoc(collection(db, 'users', user.uid, 'sessions'), {
-          userId: user.uid,
-          taskId: selectedTaskId,
-          duration: focusDuration,
-          timestamp: Date.now(),
-          xpEarned: earnedXp
-        });
+        if (user && profile) {
+          const newFocus = (profile.skills?.focus || 0) + 2;
+          const newCons = (profile.skills?.consistency || 0) + 1;
 
-        if (selectedTaskId) {
-          const taskDoc = doc(db, 'users', user.uid, 'tasks', selectedTaskId);
-          await updateDoc(taskDoc, { sessions: increment(1) });
+          const userDoc = doc(db, 'users', user.uid);
+          await updateDoc(userDoc, {
+            pomodorosCompleted: increment(1),
+            totalFocusTime: increment(focusDuration),
+            'skills.focus': newFocus,
+            'skills.consistency': newCons
+          });
+
+          await addDoc(collection(db, 'users', user.uid, 'sessions'), {
+            userId: user.uid,
+            taskId: selectedTaskId,
+            duration: focusDuration,
+            timestamp: Date.now(),
+            xpEarned: xpEarned
+          });
+
+          if (selectedTaskId) {
+            const taskDoc = doc(db, 'users', user.uid, 'tasks', selectedTaskId);
+            await updateDoc(taskDoc, { sessions: increment(1) });
+          }
+        }
+
+        // Check if Long Break or Short Break
+        if ((sessionCount + 1) % 4 === 0) {
+          setMode('longBreak');
+          setTimeLeft((profile?.settings?.breakDuration || 15) * 60 + 5 * 60); // Long break default 15+5
+        } else {
+          setMode('shortBreak');
+          setTimeLeft((profile?.settings?.breakDuration || 5) * 60);
+        }
+
+      } else {
+        // Break Completed
+        if (mode === 'longBreak') {
+          setCycleCount(prev => prev + 1);
+          setSessionCount(0);
+        }
+
+        setMode('study');
+        setTimeLeft(profile?.settings?.workDuration ? profile.settings.workDuration * 60 : 50 * 60);
+        
+        if (user && profile) {
+          const userDoc = doc(db, 'users', user.uid);
+          await updateDoc(userDoc, {
+            'skills.discipline': (profile.skills?.discipline || 0) + 2
+          });
         }
       }
-
-      // Check if Long Break or Short Break
-      if ((sessionCount + 1) % 4 === 0) {
-        setMode('longBreak');
-        setTimeLeft((profile?.settings?.breakDuration || 15) * 60 + 5 * 60); // Long break default 15+5
-      } else {
-        setMode('shortBreak');
-        setTimeLeft((profile?.settings?.breakDuration || 5) * 60);
+    } catch (error) {
+      console.error("Timer completion updates failed:", error);
+    } finally {
+      if (profile?.settings?.autoStartNextSession) {
+        // Ensure state is updated before starting
+        setTimeout(() => setIsRunning(true), 500);
       }
-
-    } else {
-      // Break Completed
-      if (mode === 'longBreak') {
-        setCycleCount(prev => prev + 1);
-        setSessionCount(0);
-      }
-
-      setMode('study');
-      setTimeLeft(profile?.settings?.workDuration ? profile.settings.workDuration * 60 : 50 * 60);
-      
-      if (user && profile) {
-        const userDoc = doc(db, 'users', user.uid);
-        await updateDoc(userDoc, {
-          'skills.discipline': (profile.skills?.discipline || 0) + 2
-        });
-      }
-    }
-
-    if (profile?.settings?.autoStartNextSession) {
-      setIsRunning(true);
     }
   };
 
   const toggleTimer = () => {
-    if (!isRunning && mode === 'study' && !selectedTaskId && tasks.filter(t => !t.completed).length > 0) {
-      // Prompt selection if none selected and tasks exist
-      alert("Please select a task from your Tactical Roster before starting the timer.");
-      setActiveTab('home');
-      return;
+    if (!isRunning) {
+      if (mode === 'study' && !sessionIntention && !isFocusMode) {
+        setShowIntentionInput(true);
+        return;
+      }
+      setSessionStartTime(Date.now());
+      setIsRunning(true);
+      playTick();
+    } else {
+      setIsRunning(false);
+      playTick();
     }
-    setIsRunning(!isRunning);
+  };
+
+  const logDistraction = () => {
+    setDistractions(prev => prev + 1);
+    if (typeof window !== 'undefined' && window.navigator.vibrate) window.navigator.vibrate(50);
+  };
+
+  const calculateFocusScore = () => {
+    if (!sessionStartTime) return 0;
+    const durationMinutes = (Date.now() - sessionStartTime) / (1000 * 60);
+    const expectedMinutes = mode === 'study' ? (profile?.settings?.workDuration || 50) : (profile?.settings?.breakDuration || 10);
+    const timeRatio = Math.min(durationMinutes / expectedMinutes, 1);
+    const score = Math.max(0, Math.round((timeRatio * 100) - (distractions * 5)));
+    return score;
   };
 
   const resetTimer = () => {
@@ -444,10 +594,10 @@ export default function App() {
     if (!user) return;
     const taskDoc = doc(db, 'users', user.uid, 'tasks', task.id);
     await updateDoc(taskDoc, { completed: !task.completed });
+    // Award XP
     if (!task.completed) {
-      // Award XP for completion
-      const userDoc = doc(db, 'users', user.uid);
-      await updateDoc(userDoc, { xp: increment(10) });
+      awardXP(15, 'tasks', 'OBJECTIVE SECURED');
+      launchConfetti({ origin: { x: 0.5, y: 0.2 }, count: 30 });
     }
   };
 
@@ -508,8 +658,12 @@ export default function App() {
       }
 
       // Award XP
-      const userDoc = doc(db, 'users', user.uid);
-      await updateDoc(userDoc, { xp: increment(XP_PER_HABIT + bonusXp) });
+      const labels = ['PROTOCOL SECURED', 'HABIT MARKED', 'CONSISTENCY +1'];
+      const randomLabel = labels[Math.floor(Math.random() * labels.length)];
+      awardXP(20, 'habits', bonusXp > 0 ? 'STREAK BONUS' : randomLabel);
+      if (bonusXp > 0) {
+        launchConfetti({ count: 50 });
+      }
     }
   };
 
@@ -526,7 +680,14 @@ export default function App() {
     };
 
     const response = await getAICoachResponse(message, context);
-    setCoachMessages(prev => [...prev, { role: 'ai', text: response || '' }]);
+    
+    // Check if the user is asking for suggestions
+    let habitSuggestions = undefined;
+    if (message.toLowerCase().includes('habit') || message.toLowerCase().includes('suggest')) {
+      habitSuggestions = await getAIHabitSuggestions(context);
+    }
+
+    setCoachMessages(prev => [...prev, { role: 'ai', text: response || '', habitSuggestions }]);
     setIsAiTyping(false);
   };
 
@@ -633,7 +794,21 @@ export default function App() {
   );
 
   return (
-    <div className="min-h-screen bg-background text-on-background pb-24 overflow-x-hidden selection:bg-primary/30">
+    <div className={cn(
+      "min-h-screen bg-background text-on-background page-content overflow-x-hidden selection:bg-primary/30",
+      profile?.settings?.isDopamineDetox && "grayscale-sm contrast-sm"
+    )}>
+      {/* Background Layers */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="cinematic-grid" />
+        <div className="grain-overlay" />
+      </div>
+      
+      {profile?.settings?.isDopamineDetox && (
+        <div className="fixed inset-0 pointer-events-none z-[100] bg-zinc-900/10 backdrop-grayscale-[0.5]" />
+      )}
+
+      <div className="cinematic-vignette" />
       <CustomCursor />
       <AnimatePresence mode="wait">
         {view === 'cinematic' ? (
@@ -643,6 +818,7 @@ export default function App() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0, scale: 0.95, filter: 'blur(10px)' }}
             transition={{ duration: 0.8 }}
+            className="relative z-10"
           >
             <HeroSection onExplore={handleDashboardTransition} />
             <StorySection onExplore={handleDashboardTransition} />
@@ -677,17 +853,33 @@ export default function App() {
               <div className="flex items-center gap-3">
                 <div 
                   onClick={() => setView('cinematic')}
-                  className="w-10 h-10 rounded-full overflow-hidden border-2 border-md-primary cursor-pointer hover:scale-110 transition-transform"
+                  className="w-10 h-10 rounded-full overflow-hidden border-2 cursor-pointer hover:scale-110 transition-transform"
+                  style={{ borderColor: getRank(profile?.allTimeXP || 0).color }}
                 >
                   <img src={user?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid}`} alt="avatar" className="w-full h-full object-cover" />
                 </div>
                 <div>
-                  <h2 className="font-semibold text-sm">Hello, {user?.displayName?.split(' ')[0] || 'Aspirant'}</h2>
-                  <div className="flex items-center gap-1">
-                    <Zap className="w-3 h-3 text-amber-500 fill-amber-500" />
-                    <span className="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-widest">
-                      LVL {profile?.level || 1} • {profile?.xp || 0} XP
-                    </span>
+                   <div className="flex items-center gap-2">
+                      <h2 className="font-semibold text-sm">Hello, {user?.displayName?.split(' ')[0] || 'Aspirant'}</h2>
+                      <span 
+                        className={cn("text-[9px] font-black uppercase px-2 py-0.5 rounded-full border", getRank(profile?.allTimeXP || 0).name === 'LEGEND' ? 'text-legend' : '')}
+                        style={getRank(profile?.allTimeXP || 0).name !== 'LEGEND' ? { color: getRank(profile?.allTimeXP || 0).color, borderColor: `${getRank(profile?.allTimeXP || 0).color}40` } : {}}
+                      >
+                         {getRank(profile?.allTimeXP || 0).name}
+                      </span>
+                   </div>
+                  <div className="flex flex-col gap-1 mt-1">
+                    <div className="flex items-center justify-between w-32">
+                        <span className="text-[8px] font-bold text-on-surface-variant/40 uppercase tracking-widest">{profile?.allTimeXP || 0} Total XP</span>
+                        <span className="text-[8px] font-bold text-md-primary">{Math.floor(getXPProgress(profile?.allTimeXP || 0).progress)}%</span>
+                    </div>
+                    <div className="h-1 w-32 bg-white/5 rounded-full overflow-hidden">
+                        <motion.div 
+                          initial={{ width: 0 }}
+                          animate={{ width: `${getXPProgress(profile?.allTimeXP || 0).progress}%` }}
+                          className="h-full bg-md-primary shadow-[0_0_8px_var(--md-primary)]"
+                        />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -774,6 +966,40 @@ export default function App() {
                       </div>
                     </motion.div>
 
+                    {/* Daily Challenges */}
+                    <section className="space-y-4">
+                      <div className="flex items-center justify-between px-2">
+                        <h3 className="text-sm font-black uppercase tracking-widest opacity-40">Daily Directives</h3>
+                        <div className="bg-amber-400/20 text-amber-400 text-[10px] font-black px-2 py-0.5 rounded-full">
+                           EXPIRES IN 14H
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        {(profile?.dailyChallenges || []).map(challenge => (
+                          <div key={challenge.id} className="glass p-4 rounded-[1.5rem] flex items-center justify-between group overflow-hidden relative">
+                            <div className="absolute inset-y-0 left-0 w-1 bg-amber-400/20 group-hover:bg-amber-400 transition-colors" />
+                            <div className="flex flex-col gap-1">
+                              <span className="font-bold text-xs">{challenge.id.split('_').join(' ').toUpperCase()}</span>
+                              <div className="flex items-center gap-2">
+                                 <div className="h-1 w-24 bg-white/5 rounded-full overflow-hidden">
+                                   <div className="h-full bg-amber-400/60" style={{ width: `${(challenge.progress / challenge.goal) * 100}%` }} />
+                                 </div>
+                                 <span className="text-[9px] opacity-40 font-bold">{challenge.progress}/{challenge.goal}</span>
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end">
+                               <div className="text-amber-400 font-mono font-bold text-[10px]">+{challenge.xp || 150} XP</div>
+                               {challenge.completed ? (
+                                 <CheckCircle className="w-4 h-4 text-green-400" />
+                               ) : (
+                                 <Star className="w-4 h-4 text-white/20" />
+                               )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                    
                     {/* Stats Grid */}
                     <section className="space-y-4">
                       <h3 className="text-sm font-black uppercase tracking-widest opacity-40 px-2">Quantum Dashboard</h3>
@@ -849,6 +1075,11 @@ export default function App() {
                           <span className="text-xs font-bold">{profile?.health?.sleep || 0}h</span>
                         </MagneticButton>
                       </div>
+                    </section>
+
+                    {/* Daily Challenges */}
+                    <section className="space-y-4">
+                      <ChallengesWidget profile={profile} />
                     </section>
 
                     {/* Habits Section */}
@@ -1022,158 +1253,284 @@ export default function App() {
           {activeTab === 'timer' && (
             <motion.div 
               key="timer"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 1.05 }}
+              id="timer-screen"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               className={cn(
-                "flex flex-col items-center justify-center min-h-[60vh] space-y-12 transition-all duration-700",
-                isFocusMode ? "bg-zinc-950 fixed inset-0 z-50 p-6" : "relative"
+                "page-content flex flex-col items-center w-full max-w-4xl mx-auto transition-all duration-700 px-4",
+                isFocusMode ? "bg-zinc-950 fixed inset-0 z-[60] py-12 justify-center" : "relative"
               )}
             >
-              {/* Mode Toggle */}
+              {/* Session Context Row */}
               {!isFocusMode && (
-                <div className="flex bg-[var(--surface-variant)] border border-white/5 p-1 rounded-full w-fit">
+                <div className="w-full flex items-center justify-between mb-8 opacity-60 px-4">
+                   <div className="flex flex-col">
+                      <span className="text-[10px] font-black uppercase tracking-widest">Active Streak</span>
+                      <div className="flex items-center gap-1">
+                        <Flame className="w-3 h-3 text-amber-500" />
+                        <span className="text-xs font-bold">{profile?.streak || 0} Sessions</span>
+                      </div>
+                   </div>
+                   <div className="flex flex-col items-end">
+                      <span className="text-[10px] font-black uppercase tracking-widest">Efficiency</span>
+                      <span className="text-xs font-bold text-md-primary">x{(1 + (profile?.level || 1) * 0.1).toFixed(1)} MULTI</span>
+                   </div>
+                </div>
+              )}
+
+              {/* Mode Toggle - Modern Pill */}
+              {!isFocusMode && (
+                <div className="flex gap-1 p-1 bg-white/5 border border-white/10 rounded-2xl backdrop-blur-xl mb-8 relative z-10 scale-90 md:scale-100">
                   <button 
-                    onClick={() => { setMode('study'); setTimeLeft((profile?.settings?.workDuration || 50) * 60); }}
-                    className={cn("px-6 py-2 rounded-full text-[10px] uppercase font-black tracking-widest transition-colors", mode === 'study' ? "bg-orange-500 text-white shadow-shadow-[0_0_20px_rgba(249,115,22,0.3)]" : "text-zinc-500 hover:text-white")}
+                    onClick={() => { setMode('study'); setTimeLeft((profile?.settings?.workDuration || 50) * 60); setIsRunning(false); setFocusScore(null); setDistractions(0); }}
+                    className={cn("px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-tight transition-all", mode === 'study' ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-white/40 hover:text-white/60")}
                   >
                     Deep Work
                   </button>
                   <button 
-                    onClick={() => { setMode('break'); setTimeLeft((profile?.settings?.breakDuration || 10) * 60); }}
-                    className={cn("px-6 py-2 rounded-full text-[10px] uppercase font-black tracking-widest transition-colors", mode === 'break' ? "bg-emerald-500 text-white shadow-[0_0_20px_rgba(16,185,129,0.3)]" : "text-zinc-500 hover:text-white")}
+                    onClick={() => { setMode('break'); setTimeLeft((profile?.settings?.breakDuration || 10) * 60); setIsRunning(false); setFocusScore(null); }}
+                    className={cn("px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-tight transition-all", mode === 'break' ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/20" : "text-white/40 hover:text-white/60")}
                   >
                     Rest
                   </button>
                 </div>
               )}
 
-              {/* Big Circular Timer */}
-              <div className="relative group perspective-1000">
+              {/* Centered Timer Visual */}
+              <div id="timer-main" className="relative flex flex-col items-center justify-center">
+                {mode === 'break' && breakActivity && !isFocusMode && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="absolute -top-12 bg-emerald-500/10 border border-emerald-500/20 px-6 py-2 rounded-full whitespace-nowrap"
+                  >
+                     <span className="text-[10px] font-black uppercase text-emerald-400 tracking-widest">Protocol: {breakActivity}</span>
+                  </motion.div>
+                )}
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={mode}
-                    initial={{ opacity: 0, scale: 0.9, rotateY: mode === 'study' ? -5 : 5 }}
-                    animate={{ opacity: 1, scale: 1, rotateY: 0 }}
-                    exit={{ opacity: 0, scale: 1.1, rotateY: mode === 'study' ? 5 : -5 }}
-                    transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 1.1, opacity: 0 }}
                     className="relative"
                   >
-                    {isRunning && (
-                      <motion.div 
-                        initial={{ opacity: 0 }}
-                        animate={{ 
-                          scale: [1.2, 1.3, 1.2],
-                          opacity: [0.1, 0.2, 0.1]
-                        }}
-                        exit={{ opacity: 0 }}
-                        className={cn("absolute inset-0 rounded-full blur-3xl -z-10", mode === 'study' ? "bg-orange-500/40" : mode === 'shortBreak' ? "bg-emerald-500/40" : "bg-blue-500/40")}
-                        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                      />
-                    )}
-
-                    <svg className="w-72 h-72 md:w-80 md:h-80 drop-shadow-2xl">
-                      <circle cx="50%" cy="50%" r="45%" fill="none" stroke="currentColor" className="text-white/5" strokeWidth="8" />
+                    <svg className="w-72 h-72 md:w-96 md:h-96 drop-shadow-[0_0_30px_rgba(0,0,0,0.5)]">
+                      <circle cx="50%" cy="50%" r="45%" fill="none" stroke="currentColor" className="text-white/5" strokeWidth="12" />
                       <motion.circle 
-                        cx="50%" cy="50%" r="45%" fill="none" stroke="currentColor" strokeWidth="8"
+                        cx="50%" cy="50%" r="45%" fill="none" stroke="currentColor" strokeWidth="12"
                         strokeDasharray="100 100"
-                        strokeDashoffset={100 - (timeLeft / (mode === 'study' ? (profile?.settings?.workDuration || 50) * 60 : mode === 'shortBreak' ? (profile?.settings?.breakDuration || 5) * 60 : (profile?.settings?.breakDuration || 15) * 60 + 5 * 60) * 100)}
+                        strokeDashoffset={100 - (timeLeft / (mode === 'study' ? (profile?.settings?.workDuration || 50) * 60 : (profile?.settings?.breakDuration || 10) * 60) * 100)}
                         strokeLinecap="round"
-                        className={cn("timer-progress transition-colors duration-500 shadow-xl drop-shadow-[0_0_15px_currentColor]", mode === 'study' ? "text-orange-500" : mode === 'shortBreak' ? "text-emerald-500" : "text-blue-500")}
+                        className={cn("timer-progress transition-colors duration-500 focus-ring-glow", mode === 'study' ? "text-primary" : "text-emerald-500")}
                         pathLength="100"
-                        initial={{ pathLength: 0 }}
-                        animate={{ pathLength: 100 }}
-                        transition={{ duration: 1.5, ease: "easeOut" }}
                       />
-                      <motion.text 
-                        key={`time-${mode}`}
-                        initial={{ y: 5, opacity: 0 }}
-                        animate={{ y: 0, opacity: 1 }}
-                        x="50%" y="54%" textAnchor="middle" 
-                        className="text-7xl font-black fill-white font-mono tracking-tighter"
-                      >
+                      <text x="50%" y="54%" textAnchor="middle" className="text-7xl md:text-8xl font-black fill-white font-mono tracking-tighter filter drop-shadow-md">
                         {formatTime(timeLeft)}
-                      </motion.text>
-                      <motion.text 
-                        key={`label-${mode}`}
-                        initial={{ y: 10, opacity: 0 }}
-                        animate={{ y: 0, opacity: 1 }}
-                        transition={{ delay: 0.1 }}
-                        x="50%" y="65%" textAnchor="middle" 
-                        className={cn("text-[10px] uppercase tracking-[0.3em] font-black", mode === 'study' ? "fill-orange-500" : mode === 'shortBreak' ? "fill-emerald-500" : "fill-blue-500")}
-                      >
-                        {mode === 'study' ? 'Flow State' : mode === 'shortBreak' ? 'Short Recovery' : 'Long Recovery'}
-                      </motion.text>
+                      </text>
+                      <text x="50%" y="65%" textAnchor="middle" className={cn("text-[10px] md:text-xs uppercase tracking-[0.4em] font-black opacity-60", mode === 'study' ? "fill-primary" : "fill-emerald-500")}>
+                        {mode === 'study' ? 'System Focus' : 'Recovery Active'}
+                      </text>
                     </svg>
-
-                    {/* Cycle Indicators */}
-                    <div className="absolute top-[80%] flex gap-2 w-full justify-center opacity-80">
-                       {[0, 1, 2, 3].map(dot => (
-                         <div key={dot} className={cn(
-                           "w-2 h-2 rounded-full transition-all duration-300",
-                           sessionCount > dot ? "bg-orange-500 shadow-[0_0_10px_#f97316]" : 
-                           sessionCount === dot && mode === 'study' ? "bg-orange-500/50 animate-pulse border border-orange-500" :
-                           sessionCount === dot && mode !== 'study' ? "bg-emerald-500 border border-emerald-500" :
-                           "bg-white/10"
-                         )} />
-                       ))}
-                    </div>
+                    
+                    {/* Focus Score Float */}
+                    {focusScore !== null && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-white/10 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/20 whitespace-nowrap"
+                      >
+                         <span className="text-[10px] font-black uppercase text-md-primary">Focus Score: {focusScore}%</span>
+                      </motion.div>
+                    )}
                   </motion.div>
                 </AnimatePresence>
-              </div>
 
-              {/* Controls */}
-              <div className="flex items-center gap-6">
-                <button 
-                  onClick={resetTimer}
-                  className="p-4 rounded-full bg-surface-variant text-on-surface-variant hover:bg-surface transition-colors"
-                >
-                  <RotateCcw className="w-5 h-5" />
-                </button>
-                <button 
-                  onClick={toggleTimer}
-                  className="w-20 h-20 rounded-full bg-primary text-white flex items-center justify-center shadow-lg hover:brightness-110 active:scale-95 transition-all shadow-primary/20"
-                >
-                  {isRunning ? <Pause className="w-8 h-8 fill-white" /> : <Play className="w-8 h-8 fill-white ml-1" />}
-                </button>
-                <button 
-                  onClick={handleTimerComplete}
-                  className="p-4 rounded-full bg-surface-variant text-on-surface-variant hover:bg-surface transition-colors"
-                  title="Skip Phase"
-                >
-                  <SkipForward className="w-5 h-5" />
-                </button>
-                <button 
-                  onClick={() => setIsFocusMode(!isFocusMode)}
-                  className="p-4 rounded-full bg-surface-variant text-on-surface-variant hover:bg-surface transition-colors"
-                >
-                  {isFocusMode ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
-                </button>
-              </div>
-
-              {/* Focus Tools */}
-              {!isFocusMode && (
-                <div className="flex flex-col md:flex-row gap-4 w-full max-w-xl mx-auto mt-8">
-                  <div className="bg-white/5 border border-white/10 flex-1 flex items-center justify-between py-4 px-6 rounded-[2rem] backdrop-blur-md">
-                    <span className="text-sm font-black tracking-widest uppercase opacity-60">Ambient</span>
-                    <div className="flex gap-2">
-                       <button onClick={() => setAmbientSound(ambientSound === 'rain' ? 'none' : 'rain')} className={cn("p-3 rounded-2xl transition-all", ambientSound === 'rain' ? "bg-primary text-white" : "bg-white/5 opacity-60 hover:opacity-100")}><CloudRain className="w-5 h-5" /></button>
-                       <button onClick={() => setAmbientSound(ambientSound === 'lofi' ? 'none' : 'lofi')} className={cn("p-3 rounded-2xl transition-all", ambientSound === 'lofi' ? "bg-primary text-white" : "bg-white/5 opacity-60 hover:opacity-100")}><Coffee className="w-5 h-5" /></button>
-                       <button onClick={() => setAmbientSound(ambientSound === 'white' ? 'none' : 'white')} className={cn("p-3 rounded-2xl transition-all", ambientSound === 'white' ? "bg-primary text-white" : "bg-white/5 opacity-60 hover:opacity-100")}><Wind className="w-5 h-5" /></button>
-                    </div>
+                {/* Cycle Indicators */}
+                {!isFocusMode && (
+                  <div className="mt-6 flex gap-3 justify-center">
+                     {[0, 1, 2, 3].map(dot => (
+                       <div key={dot} className={cn(
+                         "w-2.5 h-2.5 rounded-full transition-all duration-500 border border-white/5",
+                         sessionCount > dot ? "bg-primary shadow-[0_0_15px_rgba(0,255,224,0.6)] scale-110" : "bg-white/10"
+                       )} />
+                     ))}
                   </div>
-                  <div className="bg-white/5 border border-white/10 flex-1 flex items-center justify-center py-4 px-6 gap-4 rounded-[2rem] backdrop-blur-md">
-                    <Volume2 className="w-5 h-5 opacity-60" />
-                    <input 
-                      type="range" 
-                      className="w-full accent-primary" 
-                      defaultValue="50" 
-                      onChange={(e) => {
-                        if (soundRef.current) {
-                          soundRef.current.volume(Number(e.target.value) / 100);
-                        }
-                      }}
-                    />
+                )}
+              </div>
+
+              {/* Primary Controls */}
+              <div id="timer-controls-row" className="flex items-center gap-8 relative z-10">
+                <MagneticButton 
+                  onClick={resetTimer}
+                  className="p-5 rounded-3xl bg-white/5 border border-white/10 text-white/40 hover:text-white hover:bg-white/10 transition-all active:scale-90"
+                >
+                  <RotateCcw className="w-6 h-6" />
+                </MagneticButton>
+                <div className="relative group">
+                  <motion.div 
+                    animate={isRunning ? { scale: [1, 1.05, 1], opacity: [0, 0.2, 0] } : {}}
+                    transition={{ repeat: Infinity, duration: 2 }}
+                    className="absolute inset-0 bg-primary blur-2xl rounded-full"
+                  />
+                  <button 
+                    onClick={toggleTimer}
+                    className={cn(
+                      "w-24 h-24 rounded-full flex items-center justify-center transition-all duration-500 shadow-2xl relative z-10",
+                      isRunning ? "bg-zinc-900 text-white border-2 border-white/10" : "bg-white text-black scale-110 hover:scale-115 active:scale-95"
+                    )}
+                  >
+                    {isRunning ? <Pause className="w-10 h-10 fill-current" /> : <Play className="w-10 h-10 fill-current ml-2" />}
+                  </button>
+                </div>
+                <MagneticButton 
+                  onClick={() => setIsFocusMode(!isFocusMode)}
+                  className={cn("p-5 rounded-3xl transition-all active:scale-90", isFocusMode ? "bg-white text-black" : "bg-white/5 border border-white/10 text-white/40 hover:text-white hover:bg-white/10")}
+                >
+                  {isFocusMode ? <Minimize2 className="w-6 h-6" /> : <Maximize2 className="w-6 h-6" />}
+                </MagneticButton>
+              </div>
+
+              {/* Distraction Logger (FAB Replacement equivalent during session) */}
+              <AnimatePresence>
+                {isRunning && mode === 'study' && !isFocusMode && (
+                   <motion.button 
+                     initial={{ scale: 0, opacity: 0 }}
+                     animate={{ scale: 1, opacity: 1 }}
+                     exit={{ scale: 0, opacity: 0 }}
+                     onClick={logDistraction}
+                     className="mb-8 flex items-center gap-3 px-6 py-3 bg-red-500/10 border border-red-500/30 rounded-full text-red-400 font-black text-[10px] uppercase tracking-widest hover:bg-red-500/20 active:scale-90 transition-all distraction-pulse"
+                   >
+                     <AlertCircle className="w-4 h-4" />
+                     Log Distraction ({distractions})
+                   </motion.button>
+                )}
+              </AnimatePresence>
+
+              {/* Session Intention Input Modal/Overlay */}
+              <AnimatePresence>
+                {showIntentionInput && (
+                   <motion.div 
+                     initial={{ opacity: 0 }}
+                     animate={{ opacity: 1 }}
+                     exit={{ opacity: 0 }}
+                     className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+                   >
+                     <motion.div 
+                       initial={{ y: 100 }}
+                       animate={{ y: 0 }}
+                       className="w-full max-w-md glass p-8 rounded-[3rem] space-y-6 shadow-2xl border border-white/10"
+                     >
+                        <div className="space-y-2">
+                           <h3 className="text-xl font-black uppercase italic tracking-tighter">Set Your Intention</h3>
+                           <p className="text-xs text-white/40 font-bold">What will you accomplish in this 50-minute block?</p>
+                        </div>
+                        <input 
+                          autoFocus
+                          type="text" 
+                          placeholder="e.g. Solving 10 PHY problems"
+                          value={sessionIntention}
+                          onChange={(e) => setSessionIntention(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && sessionIntention.length > 2 && (setShowIntentionInput(false), setIsRunning(true), setSessionStartTime(Date.now()))}
+                          className="w-full bg-white/5 border border-white/10 p-5 rounded-3xl text-sm font-bold focus:border-primary focus:outline-none transition-colors"
+                        />
+                        <button 
+                          disabled={sessionIntention.length < 3}
+                          onClick={() => { setShowIntentionInput(false); setIsRunning(true); setSessionStartTime(Date.now()); }}
+                          className="w-full py-5 bg-primary text-md-on-primary font-black uppercase text-xs tracking-[0.2em] rounded-3xl disabled:opacity-30 transition-all active:scale-95 shadow-[0_0_20px_rgba(0,255,224,0.3)]"
+                        >
+                          Initialize Protocol
+                        </button>
+                     </motion.div>
+                   </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Atmosphere Control Center */}
+              {!isFocusMode && (
+                <div className="w-full space-y-12 mt-12 flex-1 page-content">
+                  <div className="bg-zinc-900/50 border border-white/10 p-8 rounded-[3rem] backdrop-blur-3xl shadow-2xl space-y-10">
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                      <div className="flex flex-col italic">
+                        <h4 className="text-xl font-black text-white">Atmosphere</h4>
+                        <p className="text-[10px] text-white/40 font-black uppercase tracking-widest">Enhanced Soundscapes</p>
+                      </div>
+                      <div className="flex gap-2 bg-white/5 p-1 rounded-2xl border border-white/10">
+                        {AMBIENT_CATEGORIES.map(cat => {
+                          const IconComp = (cat.id === 'nature' ? CloudRain : cat.id === 'focus' ? Brain : Music);
+                          return (
+                            <button
+                              key={cat.id}
+                              onClick={() => setActiveAmbientCategory(cat.id)}
+                              className={cn(
+                                "flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                                activeAmbientCategory === cat.id ? "bg-primary text-white" : "text-white/40 hover:text-white/60"
+                              )}
+                            >
+                              <IconComp className="w-3 h-3" />
+                              {cat.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                      {AMBIENT_DATA.filter(t => t.category === activeAmbientCategory).map(track => {
+                        const isSelected = ambientSound === track.id;
+                        const IconComponent = (
+                          track.icon === 'CloudRain' ? CloudRain :
+                          track.icon === 'Activity' ? Activity :
+                          track.icon === 'Droplets' ? Droplets :
+                          track.icon === 'Coffee' ? Coffee :
+                          track.icon === 'Music' ? Music :
+                          track.icon === 'Hash' ? Hash :
+                          track.icon === 'Wind' ? Wind :
+                          track.icon === 'Zap' ? Zap : Music
+                        );
+                        return (
+                          <button
+                            key={track.id}
+                            onClick={() => setAmbientSound(isSelected ? 'none' : track.id)}
+                            className={cn(
+                              "group relative flex flex-col items-center justify-center gap-3 p-6 rounded-[2.5rem] border transition-all duration-500",
+                              isSelected ? "bg-primary shadow-[0_0_20px_rgba(0,255,224,0.3)] border-primary" : "bg-white/5 border-white/10 opacity-40 hover:opacity-100 hover:scale-105"
+                            )}
+                          >
+                            <div className={cn("p-4 rounded-2xl transition-all duration-500", isSelected ? "bg-md-on-primary-cont text-md-primary scale-110" : "bg-white/10 text-white group-hover:bg-white/20")}>
+                              <IconComponent className="w-6 h-6" />
+                              {isSelected && (
+                                <motion.div 
+                                  layoutId="active-dot" 
+                                  className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full animate-pulse"
+                                />
+                              )}
+                            </div>
+                            <span className={cn("text-[10px] font-black uppercase tracking-tighter transition-colors", isSelected ? "text-primary" : "text-white/60")}>{track.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-center gap-6 pt-6 border-t border-white/5">
+                      <div className="flex items-center gap-4 min-w-[140px]">
+                        <div className="p-3 rounded-2xl bg-white/5 text-white/40">
+                           {ambientVolume === 0 ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-black opacity-40 uppercase">Volume</span>
+                          <span className="text-sm font-bold tabular-nums">{Math.round(ambientVolume * 100)}%</span>
+                        </div>
+                      </div>
+                      <div className="flex-1 w-full relative">
+                         <input 
+                            type="range" min="0" max="1" step="0.01" value={ambientVolume}
+                            onChange={(e) => setAmbientVolume(parseFloat(e.target.value))}
+                            className="w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary focus:outline-none"
+                          />
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1330,29 +1687,43 @@ export default function App() {
 
               {/* Achievements */}
               <div className="space-y-4">
-                <h4 className="font-bold flex items-center gap-2">
-                  <Award className="w-5 h-5 text-amber-500" />
-                  Achievements
-                </h4>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="material-card p-4 flex flex-col items-center justify-center text-center gap-2">
-                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
-                      <Zap className="w-6 h-6" />
-                    </div>
-                    <span className="text-[10px] font-bold opacity-80">Deep Work Beast</span>
-                  </div>
-                  <div className="material-card p-4 flex flex-col items-center justify-center text-center gap-2 grayscale">
-                    <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center text-purple-600">
-                      <Award className="w-6 h-6" />
-                    </div>
-                    <span className="text-[10px] font-bold opacity-80">Consistency King</span>
-                  </div>
-                  <div className="material-card p-4 flex flex-col items-center justify-center text-center gap-2 grayscale">
-                    <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center text-green-600">
-                      <RotateCcw className="w-6 h-6" />
-                    </div>
-                    <span className="text-[10px] font-bold opacity-80">Master of Rest</span>
-                  </div>
+                <div className="flex items-center justify-between px-2">
+                  <h4 className="font-bold flex items-center gap-2">
+                    <Award className="w-5 h-5 text-amber-500" />
+                    Achievements
+                  </h4>
+                  <span className="text-[10px] font-black opacity-40">{(profile?.unlockedAchievements?.length || 0)} / 20 UNLOCKED</span>
+                </div>
+                <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
+                  {ACHIEVEMENTS.map(ach => {
+                    const isUnlocked = profile?.unlockedAchievements?.includes(ach.id);
+                    return (
+                      <motion.div 
+                        key={ach.id} 
+                        whileHover={isUnlocked ? { scale: 1.05, y: -5 } : {}}
+                        className={cn(
+                          "glass p-4 flex flex-col items-center justify-center text-center gap-2 rounded-[1.5rem] relative group border transition-all duration-500",
+                          isUnlocked ? "border-amber-400/30 bg-amber-400/5 shadow-[0_0_20px_rgba(212,168,67,0.1)]" : "opacity-30 grayscale border-white/5"
+                        )}
+                      >
+                        <div className={cn(
+                          "w-12 h-12 rounded-full flex items-center justify-center text-2xl mb-1",
+                          isUnlocked ? "bg-amber-400/20" : "bg-white/5"
+                        )}>
+                          {ach.icon}
+                        </div>
+                        <span className="text-[10px] font-bold line-clamp-1">{ach.name}</span>
+                        {isUnlocked && (
+                          <div className="absolute top-2 right-2">
+                            <Star className="w-2.5 h-2.5 text-amber-400 fill-amber-400" />
+                          </div>
+                        )}
+                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center bg-black/80 rounded-[1.5rem] p-4">
+                           <p className="text-[8px] font-bold leading-tight">{ach.description}</p>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
                 </div>
               </div>
             </motion.div>
@@ -1383,16 +1754,26 @@ export default function App() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Zap className="w-6 h-6 text-amber-500" />
-                    <span className="font-bold">Level {profile?.level || 1}</span>
+                    <span className="font-bold uppercase tracking-widest">
+                      {getRank(profile?.allTimeXP || 0).id === 'legend' ? 
+                        <LegendText text={getRank(profile?.allTimeXP || 0).name} className="text-xl" /> : 
+                        getRank(profile?.allTimeXP || 0).name}
+                    </span>
                   </div>
-                  <span className="text-xs font-bold text-on-surface-variant/40">{profile?.xp || 0} / {Math.max(100, (profile?.level || 1) * 100)} XP</span>
+                  <span className="text-xs font-bold text-on-surface-variant/40"><TickingNumber value={profile?.allTimeXP || 0} /> XP TOTAL</span>
                 </div>
-                <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: `${((profile?.xp || 0) % 100)}%` }}
-                    className="h-full bg-amber-500"
-                  />
+                <div className="space-y-2">
+                  <div className="flex justify-between text-[10px] font-bold opacity-40 uppercase tracking-widest">
+                     <span>Rank Progress</span>
+                     <span>{Math.floor(getXPProgress(profile?.allTimeXP || 0).progress)}%</span>
+                  </div>
+                  <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${getXPProgress(profile?.allTimeXP || 0).progress}%` }}
+                      className="h-full bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -1401,30 +1782,9 @@ export default function App() {
                   onClick={async () => {
                     if(!user) return;
                     const userDoc = doc(db, 'users', user.uid);
-                    await updateDoc(userDoc, { 'settings.isDopamineDetox': !profile?.settings?.isDopamineDetox });
-                  }}
-                  className={cn(
-                    "w-full flex items-center justify-between p-5 rounded-3xl font-bold transition-all border border-transparent",
-                    profile?.settings?.isDopamineDetox ? "bg-primary/10 border-primary text-primary" : "bg-surface-variant text-on-surface"
-                  )}
-                >
-                  <div className="flex items-center gap-3">
-                    <Hash className="w-5 h-5" />
-                    <span>Dopamine Detox Mode</span>
-                  </div>
-                  <div className={cn("w-10 h-5 rounded-full relative transition-colors", profile?.settings?.isDopamineDetox ? "bg-primary" : "bg-outline")}>
-                    <motion.div 
-                      animate={{ x: profile?.settings?.isDopamineDetox ? 20 : 0 }}
-                      className="absolute left-1 top-1 w-3 h-3 bg-white rounded-full"
-                    />
-                  </div>
-                </button>
-
-                <button 
-                  onClick={async () => {
-                    if(!user) return;
-                    const userDoc = doc(db, 'users', user.uid);
-                    await updateDoc(userDoc, { 'settings.autoStartNextSession': !profile?.settings?.autoStartNextSession });
+                    const current = profile?.settings?.autoStartNextSession || false;
+                    setProfile(prev => prev ? { ...prev, settings: { ...prev.settings, autoStartNextSession: !current } } : prev);
+                    await updateDoc(userDoc, { 'settings.autoStartNextSession': !current });
                   }}
                   className={cn(
                     "w-full flex items-center justify-between p-5 rounded-3xl font-bold transition-all border border-transparent",
@@ -1622,13 +1982,35 @@ export default function App() {
         <>
           {/* Desktop Nav Rail */}
           <nav className="hidden md:flex fixed left-0 top-0 bottom-0 h-screen w-64 border-r border-white/5 bg-md-surface/80 backdrop-blur-2xl z-40
-                          flex-col items-start justify-center gap-4 px-4 py-8">
+                          flex-col items-start justify-start gap-1 px-4 py-8">
+            <div className="w-full mb-8 flex items-center justify-between px-2">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-md-primary/10 flex items-center justify-center border border-md-primary/20">
+                  <Play className="w-5 h-5 text-md-primary fill-md-primary" />
+                </div>
+                <h1 className="font-display text-2xl uppercase tracking-tighter">Mission</h1>
+              </div>
+              <StreakWidget profile={profile} mobile={true} />
+            </div>
+
             <NavButton active={activeTab === 'home'} icon={Home} label={t('home')} onClick={() => setActiveTab('home')} />
             <NavButton active={activeTab === 'tasks'} icon={BarChart2} label={t('tasks')} onClick={() => setActiveTab('tasks')} />
             <NavButton active={activeTab === 'timer'} icon={Timer} label={t('timer')} onClick={() => setActiveTab('timer')} />
-            <NavButton active={activeTab === 'stats'} icon={Activity} label={t('analytics')} onClick={() => setActiveTab('stats')} />
+            {!profile?.settings?.isDopamineDetox && (
+              <>
+                <NavButton active={activeTab === 'stats'} icon={Activity} label={t('analytics')} onClick={() => setActiveTab('stats')} />
+                <NavButton 
+                  active={showAchievements} 
+                  icon={Award} 
+                  label="Trophies" 
+                  onClick={() => setShowAchievements(true)} 
+                />
+                <NavButton active={activeTab === 'developer'} icon={Sparkles} label="Developer" onClick={() => setActiveTab('developer')} />
+              </>
+            )}
             <NavButton active={activeTab === 'profile'} icon={UserIcon} label={t('settings')} onClick={() => setActiveTab('profile')} />
-            <NavButton active={activeTab === 'developer'} icon={Sparkles} label="Developer" onClick={() => setActiveTab('developer')} />
+            
+            <XPBar profile={profile} />
           </nav>
 
           {/* Mobile Bottom Tab */}
@@ -1636,7 +2018,9 @@ export default function App() {
             <NavButton active={activeTab === 'home'} icon={Home} label={t('home')} onClick={() => setActiveTab('home')} />
             <NavButton active={activeTab === 'tasks'} icon={BarChart2} label={t('tasks')} onClick={() => setActiveTab('tasks')} />
             <NavButton active={activeTab === 'timer'} icon={Timer} label={t('timer')} onClick={() => setActiveTab('timer')} />
-            <NavButton active={activeTab === 'stats'} icon={Activity} label={t('analytics')} onClick={() => setActiveTab('stats')} />
+            {!profile?.settings?.isDopamineDetox && (
+              <NavButton active={activeTab === 'stats'} icon={Activity} label={t('analytics')} onClick={() => setActiveTab('stats')} />
+            )}
             <NavButton active={activeTab === 'developer'} icon={Sparkles} label="Dev" onClick={() => setActiveTab('developer')} />
           </nav>
         </>
@@ -1827,6 +2211,38 @@ export default function App() {
         onClose={() => setIsAddHabitModalOpen(false)}
         onAdd={addHabit}
       />
+      <AnimatePresence>
+        {rankUp && (
+          <RankUpCeremony 
+            oldRank={rankUp.oldRank} 
+            newRank={rankUp.newRank} 
+            onComplete={() => setRankUp(null)} 
+          />
+        )}
+        {unlockedAchievement && (
+          <AchievementUnlock 
+            achievement={unlockedAchievement} 
+            onComplete={() => setUnlockedAchievement(null)} 
+          />
+        )}
+        {xpLabels.map(label => (
+          <XPLabel 
+            key={label.id} 
+            {...label}
+          />
+        ))}
+      </AnimatePresence>
+      <ComboDisplay combo={combo} />
+      <ConfettiCanvas />
+      <AnimatePresence>
+        {showAchievements && (
+          <AchievementsModal 
+            isOpen={showAchievements} 
+            onClose={() => setShowAchievements(false)} 
+            profile={profile} 
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
