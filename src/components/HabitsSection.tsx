@@ -97,9 +97,9 @@ export const HabitsSection: React.FC<{ habits: any[], onAdd: () => void, onMark:
                     {/* Row 1 */}
                     <div className="flex justify-between items-center">
                       <div className="flex items-center gap-4">
-                        <span className="text-3xl">{habit.name.split(' ')[0] || '🔥'}</span>
+                        <span className="text-3xl">{habit.icon || '🔥'}</span>
                         <div>
-                          <h4 className="font-bold text-lg md:text-xl text-white">{habit.name}</h4>
+                          <h4 className="font-bold text-lg md:text-xl text-white">{habit.title}</h4>
                           <span className="font-mono text-[10px] text-md-primary tracking-widest uppercase opacity-80">Streak {habit.streak || 0}</span>
                         </div>
                       </div>

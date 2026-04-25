@@ -161,43 +161,63 @@ export const StorySection: React.FC<{ onExplore: () => void }> = ({ onExplore })
 
   useGSAP(() => {
     const panels = gsap.utils.toArray('.panel');
+    const scrollTriggers: ScrollTrigger[] = [];
     
     panels.forEach((panel: any) => {
-      ScrollTrigger.create({
+      const st = ScrollTrigger.create({
         trigger: panel,
         start: 'top top',
         pin: true,
-        pinSpacing: false,
-        snap: 1
+        pinSpacing: true, // safer than false
       });
+      scrollTriggers.push(st);
 
-      gsap.from(panel.querySelector('.panel-content'), {
-        y: 60,
-        opacity: 0,
-        duration: 1.2,
-        ease: 'power3.out',
-        scrollTrigger: {
-          trigger: panel,
-          start: 'top 60%',
-          toggleActions: 'play none none reverse'
-        }
-      });
+      const content = panel.querySelector('.panel-content');
+      if (content) {
+        gsap.from(content, {
+          y: 60,
+          opacity: 0,
+          duration: 1.2,
+          ease: 'power3.out',
+          scrollTrigger: {
+            trigger: panel,
+            start: 'top 60%',
+            toggleActions: 'play none none reverse'
+          }
+        });
+      }
     });
 
-    gsap.from('.graph-line', {
-      strokeDashoffset: 1000,
-      strokeDasharray: 1000,
-      duration: 2.5,
-      ease: 'power2.inOut',
-      scrollTrigger: { trigger: '.graph-section', scrub: 1.5 }
+    const lineST = ScrollTrigger.create({
+      trigger: '.graph-section',
+      scrub: 1.5,
+      animation: gsap.from('.graph-line', {
+        strokeDashoffset: 1000,
+        strokeDasharray: 1000,
+        duration: 2.5,
+        ease: 'power2.inOut',
+      })
     });
+    scrollTriggers.push(lineST);
     
-    gsap.from('.graph-point', {
-      scale: 0, opacity: 0,
-      ease: "back.out(2)",
-      stagger: 0.1,
-      scrollTrigger: { trigger: '.graph-section', start: 'top 40%' }
+    const pointsST = ScrollTrigger.create({
+      trigger: '.graph-section',
+      start: 'top 40%',
+      animation: gsap.from('.graph-point', {
+        scale: 0, 
+        opacity: 0,
+        ease: "back.out(2)",
+        stagger: 0.1,
+      })
     });
+    scrollTriggers.push(pointsST);
+
+    // Refresh after setup
+    ScrollTrigger.refresh();
+
+    return () => {
+      scrollTriggers.forEach(t => t.kill());
+    };
   }, { scope: containerRef });
 
   return (

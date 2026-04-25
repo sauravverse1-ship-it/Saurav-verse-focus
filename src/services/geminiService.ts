@@ -19,6 +19,13 @@ If asked for a daily plan, provide 3 actionable bullet points.
 If the user is feeling low, give a 'Dopamine Shot' (short motivational burst).
 `;
 
+const FALLBACK_COACH_RESPONSES = [
+  "Quantum systems are under maintenance. Focus on your PyQs for now. Consistency is the only path to the AIR you want.",
+  "The AI core is recharging. I've analyzed your intent: keep grinding on those Mechanics problems. Intensity wins.",
+  "Connection to Aether is fluxing. Standby and maintain focus. Remember: Chemistry is where you'll score easy marks if you memorize the inorganic reactions.",
+  "System offline. Real-world study mode engaged. Take a 5-minute break then finish your Physics target. I'll be back online shortly."
+];
+
 export async function getAICoachResponse(userMessage: string, context?: any) {
   try {
     const response = await ai.models.generateContent({
@@ -29,12 +36,31 @@ export async function getAICoachResponse(userMessage: string, context?: any) {
       }
     });
     
-    return response.text || "The Quantum Link is weak right now. Keep grinding, I'll be back soon.";
+    return response.text || FALLBACK_COACH_RESPONSES[Math.floor(Math.random() * FALLBACK_COACH_RESPONSES.length)];
   } catch (error) {
-    console.error("AI Coach Error:", error);
-    return "The Quantum Link is weak right now. Keep grinding, I'll be back soon.";
+    console.warn("AI Coach Rate Limited/Error, using fallback:", error);
+    return FALLBACK_COACH_RESPONSES[Math.floor(Math.random() * FALLBACK_COACH_RESPONSES.length)];
   }
 }
+
+const FALLBACK_QUOTES = [
+  "Discipline equals freedom. Go build your destiny.",
+  "Your potential is a limited resource. Stop wasting it.",
+  "The grind doesn't lie. Results are coming.",
+  "Focus is the master key. Unlock your greatness.",
+  "Don't stop when you're tired. Stop when you're done.",
+  "Excellence is not an act, but a habit. Keep at it.",
+  "Precision beats power. Consistency beats intensity.",
+  "Obsession is the motor of genius. Stay locked in.",
+  "Your future self is watching. Don't let them down.",
+  "Pressure creates diamonds. Embrace the squeeze."
+];
+
+const FALLBACK_HABITS = [
+  { title: "Deep Focus Block", icon: "Brain", description: "Set a 50-minute timer and hide your phone." },
+  { title: "Hydration Sync", icon: "Droplets", description: "Drink 500ml water before every study session." },
+  { title: "Review Pulse", icon: "BookOpen", description: "Quickly review previous day's notes for 10 minutes." }
+];
 
 export async function getAIQuote() {
   try {
@@ -45,10 +71,10 @@ export async function getAIQuote() {
         systemInstruction: "You are an AI generating motivational quotes for high-performing students."
       }
     });
-    return response.text || "Discipline equals freedom. Go build your destiny.";
+    return response.text || FALLBACK_QUOTES[Math.floor(Math.random() * FALLBACK_QUOTES.length)];
   } catch (error) {
-    console.error("AI Quote Error:", error);
-    return "Discipline equals freedom. Go build your destiny.";
+    console.warn("AI Quote Rate Limited/Error, using fallback:", error);
+    return FALLBACK_QUOTES[Math.floor(Math.random() * FALLBACK_QUOTES.length)];
   }
 }
 
@@ -63,10 +89,10 @@ export async function getAIHabitSuggestions(context: any): Promise<{title: strin
       }
     });
     
-    if (!response.text) return [];
+    if (!response.text) return FALLBACK_HABITS;
     return JSON.parse(response.text);
   } catch (error) {
-    console.error("AI Habit Suggestion Error:", error);
-    return [];
+    console.warn("AI Habit Suggestion Rate Limited/Error, using fallback:", error);
+    return FALLBACK_HABITS;
   }
 }

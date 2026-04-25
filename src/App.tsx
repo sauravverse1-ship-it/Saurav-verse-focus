@@ -24,6 +24,7 @@ import { ChatInput } from './components/ChatInput';
 import { HabitHeatMap, HabitStreakInfo } from './components/HabitStats';
 import { AddTaskModal } from './components/AddTaskModal';
 import { AddHabitModal } from './components/AddHabitModal';
+import { AdaptiveWidgetGrid } from './components/AdaptiveWidgets';
 import { playTick, playWhoosh, playBell } from './lib/audio';
 import { cn } from './lib/utils';
 import { UserProfile, Task, Habit, FocusSession } from './types';
@@ -774,6 +775,20 @@ export default function App() {
                     </motion.div>
 
                     {/* Stats Grid */}
+                    <section className="space-y-4">
+                      <h3 className="text-sm font-black uppercase tracking-widest opacity-40 px-2">Quantum Dashboard</h3>
+                      <AdaptiveWidgetGrid 
+                        timeLeft={timeLeft}
+                        isRunning={isRunning}
+                        mode={mode}
+                        currentTask={selectedTaskId}
+                        tasks={tasks}
+                        onToggleTimer={() => setIsRunning(!isRunning)}
+                        onResetTimer={() => setTimeLeft(mode === 'study' ? (profile?.settings?.workDuration || 50) * 60 : (profile?.settings?.breakDuration || 5) * 60)}
+                        formatTime={formatTime}
+                      />
+                    </section>
+
                     <div className="grid grid-cols-2 gap-4">
                       <TiltCard intensity={10}>
                         <div className="animated-border p-5 md:p-6 rounded-[2.5rem] relative group md:ml-[2px] md:mt-[2px] w-full h-[calc(100%-4px)] flex cursor-default">
