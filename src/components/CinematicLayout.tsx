@@ -66,7 +66,7 @@ export const TiltCard: React.FC<TiltCardProps> = ({ children, className, intensi
 
   return (
     <div 
-      className="perspective-1000 w-full interactive"
+      className="perspective-1000 w-full h-full interactive"
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
     >

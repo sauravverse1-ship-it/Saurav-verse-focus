@@ -52,6 +52,21 @@ export async function getAIQuote() {
   }
 }
 
-export async function getSmartTasks(syllabus: string) {
-  // Logic to suggest tasks based on syllabus and user rank target
+export async function getAIHabitSuggestions(context: any): Promise<{title: string, icon: string, description: string}[]> {
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: "Based on my profile, tasks, and habits, suggest 3 new powerful, achievable micro-habits that would improve my focus and discipline. Return ONLY a valid JSON array of objects with keys: 'title', 'icon' (a lucide-react icon name like 'Zap', 'Brain', 'BookOpen'), and 'description'.",
+      config: {
+        systemInstruction: SYSTEM_INSTRUCTION + (context ? `\nUser Context: ${JSON.stringify(context)}` : ''),
+        responseMimeType: "application/json",
+      }
+    });
+    
+    if (!response.text) return [];
+    return JSON.parse(response.text);
+  } catch (error) {
+    console.error("AI Habit Suggestion Error:", error);
+    return [];
+  }
 }

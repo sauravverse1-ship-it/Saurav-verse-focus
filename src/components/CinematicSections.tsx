@@ -13,6 +13,14 @@ gsap.registerPlugin(ScrollTrigger);
 export const HeroSection: React.FC<{ onExplore: () => void }> = ({ onExplore }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const bgRef = useRef<HTMLDivElement>(null);
+  const [isMobile, setIsMobile] = React.useState(false);
+
+  useEffect(() => {
+    setIsMobile(window.innerWidth < 768);
+    const cb = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', cb);
+    return () => window.removeEventListener('resize', cb);
+  }, []);
 
   useGSAP(() => {
     const tl = gsap.timeline({ delay: 0.3 });
@@ -85,18 +93,16 @@ export const HeroSection: React.FC<{ onExplore: () => void }> = ({ onExplore }) 
       >
         {/* CSS Stars */}
         <div className="absolute inset-0 opacity-40">
-          {[...Array(150)].map((_, i) => (
+          {[...Array(isMobile ? 20 : 50)].map((_, i) => (
             <div 
               key={i}
-              className="absolute bg-white rounded-full animate-pulse"
+              className="absolute bg-white rounded-full opacity-60"
               style={{
                 width: Math.random() * 2 + 'px',
                 height: Math.random() * 2 + 'px',
                 top: Math.random() * 100 + '%',
                 left: Math.random() * 100 + '%',
-                opacity: Math.random(),
-                animationDuration: `${Math.random() * 3 + 2}s`,
-                animationDelay: `${Math.random() * 2}s`
+                opacity: Math.random()
               }}
             />
           ))}
@@ -105,24 +111,24 @@ export const HeroSection: React.FC<{ onExplore: () => void }> = ({ onExplore }) 
         <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_100px_rgba(255,0,0,0.1),inset_0_0_120px_rgba(0,0,255,0.1)] mix-blend-multiply" />
         
         {/* Fog Layers */}
-        <div className="fog-layer absolute top-1/4 left-1/4 w-[60%] h-[60%] bg-md-primary/10 blur-[100px] rounded-full" />
-        <div className="fog-layer absolute bottom-1/4 right-1/4 w-[50%] h-[50%] bg-md-secondary/10 blur-[120px] rounded-full" />
+        <div className={cn("fog-layer absolute top-1/4 left-1/4 w-[60%] h-[60%] bg-md-primary/10 blur-[100px] rounded-full", isMobile && "opacity-50 scale-75")} />
+        <div className={cn("fog-layer absolute bottom-1/4 right-1/4 w-[50%] h-[50%] bg-md-secondary/10 blur-[120px] rounded-full", isMobile && "opacity-50 scale-75")} />
       </div>
 
       {/* Hero Content */}
       <div className="hero-content relative z-10 flex flex-col items-center gap-12 px-6 text-center">
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 max-w-[95vw]">
           <span className="text-md-primary font-mono text-sm uppercase tracking-[0.8em] font-black block opacity-80">
             System Initialization
           </span>
-          <h1 className="text-6xl md:text-9xl font-display tracking-tighter leading-[0.85] flex flex-wrap justify-center gap-x-4">
+          <h1 className="font-display tracking-tighter leading-[0.85] flex flex-wrap justify-center gap-x-4 text-[clamp(36px,10vw,88px)]">
             {titleChars.map((char, i) => (
               <span key={i} className={cn("char inline-block text-white", char === " " ? "w-4 md:w-8" : "")}>{char}</span>
             ))}
           </h1>
         </div>
 
-        <TiltCard intensity={15} className="hero-card max-w-lg w-full bg-md-surface-2 border border-md-primary/10 rounded-3xl p-10 shadow-[0_24px_64px_rgba(0,0,0,0.8),0_16px_32px_rgba(0,255,224,0.18)] backdrop-blur-2xl">
+        <TiltCard intensity={15} className="hero-card max-w-[95vw] md:max-w-lg w-full bg-md-surface-2 border border-md-primary/10 p-[28px_20px] md:p-10 rounded-[28px] md:rounded-3xl shadow-[0_24px_64px_rgba(0,0,0,0.8),0_16px_32px_rgba(0,255,224,0.18)] backdrop-blur-2xl">
           <div className="flex flex-col gap-6 text-left relative overflow-hidden group">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-md-primary to-transparent opacity-40 shadow-[0_0_10px_var(--md-primary)]" />
             <div className="w-16 h-16 bg-md-primary-container rounded-2xl flex items-center justify-center border border-md-primary/20">
@@ -130,7 +136,7 @@ export const HeroSection: React.FC<{ onExplore: () => void }> = ({ onExplore }) 
             </div>
             <div>
               <h2 className="text-3xl font-display tracking-wide uppercase text-white">The Focus Protocol</h2>
-              <p className="hero-subtitle text-md-on-surface-variant text-lg mt-3 leading-relaxed font-serif italic">
+              <p className="hero-subtitle text-md-on-surface-variant mt-3 leading-relaxed font-serif italic text-[clamp(14px,4vw,22px)]">
                 "Average is the enemy. RANK 1 is the mission. Welcome to the engine that transforms effort into destiny."
               </p>
             </div>
@@ -140,10 +146,10 @@ export const HeroSection: React.FC<{ onExplore: () => void }> = ({ onExplore }) 
         <button 
           onClick={onExplore}
           onMouseEnter={playTick}
-          className="hero-btn group relative px-12 py-6 bg-md-primary text-md-on-primary border-none rounded-full font-mono font-bold uppercase tracking-[0.3em] text-xs hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 shadow-[0_16px_48px_rgba(0,255,224,0.3)] hover:shadow-[0_24px_64px_rgba(0,255,224,0.5)]"
+          className="hero-btn group relative w-full md:w-auto flex-col md:flex-row flex items-center justify-center gap-3 px-12 py-6 bg-md-primary text-md-on-primary border-none rounded-[28px] md:rounded-full font-mono font-bold uppercase tracking-[0.3em] text-xs hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 shadow-[0_16px_48px_rgba(0,255,224,0.3)] hover:shadow-[0_24px_64px_rgba(0,255,224,0.5)]"
         >
-          Initialize Engine
-          <ChevronDown className="absolute -bottom-16 left-1/2 -translate-x-1/2 w-10 h-10 text-md-primary/60 animate-bounce" />
+          <span>Initialize Engine</span>
+          <ChevronDown className="hidden md:block absolute -bottom-16 left-1/2 -translate-x-1/2 w-10 h-10 text-md-primary/60 animate-bounce" />
         </button>
       </div>
     </div>

@@ -7,17 +7,20 @@ import {
   Play, Pause, RotateCcw, CheckCircle, Home, Timer, BarChart2, User as UserIcon, 
   Plus, Settings, Volume2, VolumeX, Maximize2, Minimize2, Award, Zap, 
   CloudRain, Coffee, Wind, LogOut, BookOpen, Heart, Activity, Calendar, 
-  Trash2, Edit, ChevronRight, Hash, Clock, Brain, Target, Flame, Sparkles, MessageSquare, Battery, Droplets, Moon, Utensils, ShieldCheck, ThumbsUp, ThumbsDown
+  Trash2, Edit, ChevronRight, Hash, Clock, Brain, Target, Flame, Sparkles, MessageSquare, Battery, Droplets, Moon, Utensils, ShieldCheck, ThumbsUp, ThumbsDown, SkipForward
 } from 'lucide-react';
-import { getAICoachResponse, getAIQuote } from './services/geminiService';
+import { getAICoachResponse, getAIQuote, getAIHabitSuggestions } from './services/geminiService';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { useTranslation } from 'react-i18next';
 import './i18n';
 import firebaseConfig from '../firebase-applet-config.json';
 import { Howl } from 'howler';
 import { HeroSection, StorySection } from './components/CinematicSections';
+import { HabitsSection } from './components/HabitsSection';
+import { DeveloperSection } from './components/DeveloperSection';
 import { TiltCard, MagneticButton } from './components/CinematicLayout';
 import { CustomCursor } from './components/CustomCursor';
+import { ChatInput } from './components/ChatInput';
 import { HabitHeatMap, HabitStreakInfo } from './components/HabitStats';
 import { AddTaskModal } from './components/AddTaskModal';
 import { AddHabitModal } from './components/AddHabitModal';
@@ -65,9 +68,9 @@ const CATEGORIES = {
 
 // --- Ambient Sounds ---
 const AMBIENT_TRACKS = {
-  rain: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', // Placeholder
-  lofi: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3', // Placeholder
-  white: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3', // Placeholder
+  rain: 'https://actions.google.com/sounds/v1/water/rain_on_roof.ogg',
+  lofi: 'https://actions.google.com/sounds/v1/ambiences/coffee_shop.ogg', // better alternative for lofi vibes
+  white: 'https://actions.google.com/sounds/v1/water/waves_crashing_on_rock_beach.ogg',
 };
 
 // --- Components ---
@@ -82,23 +85,29 @@ const NavButton = ({ active, icon: Icon, label, onClick }: { active: boolean, ic
   <button 
     onClick={() => { playTick(); onClick(); }}
     onMouseEnter={playTick}
-    className="group relative flex items-center md:flex-row flex-col gap-1 md:gap-4 md:w-full md:px-4 md:py-3 transition-all duration-300 rounded-full md:hover:bg-md-surface-2"
+    className="group relative flex items-center md:flex-row flex-col gap-1 md:gap-4 md:w-full md:px-4 md:py-3 transition-all duration-300 w-16 h-16 md:h-auto justify-center md:justify-start"
   >
+    {active && (
+      <motion.div 
+        layoutId="nav-rail-indicator-mobile"
+        className="md:hidden absolute top-0 w-8 h-1.5 bg-md-primary rounded-b-full shadow-[0_0_15px_var(--md-primary)]"
+      />
+    )}
     <div className={cn(
-      "relative z-10 w-14 h-8 md:w-16 md:h-10 flex items-center justify-center rounded-full transition-all duration-300",
-      active ? "bg-md-primary-container text-md-on-primary-cont" : "text-md-on-surface-variant group-hover:text-white"
+      "relative z-10 w-full h-8 md:w-16 md:h-10 flex items-center justify-center rounded-full transition-all duration-300",
+      active ? "md:bg-md-primary-container text-md-primary md:text-md-on-primary-cont" : "text-md-on-surface-variant group-hover:text-white"
     )}>
       {active && (
         <motion.div 
           layoutId="nav-rail-indicator"
-          className="absolute inset-0 bg-md-primary-container rounded-full shadow-[0_0_15px_rgba(0,80,74,0.5)] -z-10"
+          className="hidden md:block absolute inset-0 bg-md-primary-container rounded-full shadow-[0_0_15px_rgba(0,80,74,0.5)] -z-10"
         />
       )}
-      <Icon className={cn("w-5 h-5", active && "fill-md-primary/20")} strokeWidth={active ? 2.5 : 2} />
+      <Icon className={cn("w-5 h-5", active && "drop-shadow-[0_0_10px_var(--md-primary)]")} strokeWidth={active ? 2.5 : 2} />
     </div>
     <span className={cn(
-      "text-[9px] md:text-sm font-mono uppercase tracking-[0.1em] font-bold transition-all duration-300",
-      active ? "text-white opacity-100" : "text-md-on-surface-variant opacity-0 md:opacity-60 md:group-hover:opacity-100"
+      "text-[10px] md:text-sm font-mono uppercase tracking-[0.1em] font-bold transition-all duration-300 whitespace-nowrap",
+      active ? "text-white opacity-100" : "text-md-on-surface-variant md:opacity-60 md:group-hover:opacity-100 opacity-60"
     )}>
       {label}
     </span>
@@ -108,15 +117,6 @@ const NavButton = ({ active, icon: Icon, label, onClick }: { active: boolean, ic
 export default function App() {
   const { t, i18n } = useTranslation();
   const [view, setView] = useState<'cinematic' | 'dashboard'>('cinematic');
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      setMousePos({ x: e.clientX, y: e.clientY });
-    };
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, []);
 
   const handleDashboardTransition = () => {
     playWhoosh();
@@ -127,15 +127,14 @@ export default function App() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [habits, setHabits] = useState<Habit[]>([]);
-  const [activeTab, setActiveTab] = useState<'home' | 'tasks' | 'timer' | 'stats' | 'profile'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'tasks' | 'timer' | 'stats' | 'profile' | 'developer'>('home');
   const [loading, setLoading] = useState(true);
 
   // AI Coach State
   const [isCoachOpen, setIsCoachOpen] = useState(false);
-  const [coachMessages, setCoachMessages] = useState<{ role: 'user' | 'ai', text: string }[]>([
+  const [coachMessages, setCoachMessages] = useState<{ role: 'user' | 'ai', text: string, habitSuggestions?: {title: string, icon: string, description: string}[] }[]>([
     { role: 'ai', text: 'Quantum systems initialized. Ready to grind? I have analyzed your schedule for JEE 2026.' }
   ]);
-  const [aiInput, setAiInput] = useState('');
   const [isAiTyping, setIsAiTyping] = useState(false);
   
   const [dailyQuote, setDailyQuote] = useState('');
@@ -154,7 +153,13 @@ export default function App() {
   // Timer State
   const [timeLeft, setTimeLeft] = useState(50 * 60);
   const [isRunning, setIsRunning] = useState(false);
-  const [mode, setMode] = useState<'study' | 'break'>('study');
+  const [mode, setMode] = useState<'study' | 'shortBreak' | 'longBreak'>('study');
+  const [sessionCount, setSessionCount] = useState(0);
+  const [cycleCount, setCycleCount] = useState(0);
+  const [dailyGoalMins, setDailyGoalMins] = useState(120);
+  const [totalFocusToday, setTotalFocusToday] = useState(0);
+  const [isPlayingTick, setIsPlayingTick] = useState(false);
+
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
@@ -278,7 +283,8 @@ export default function App() {
       soundRef.current = new Howl({
         src: [AMBIENT_TRACKS[ambientSound as keyof typeof AMBIENT_TRACKS]],
         loop: true,
-        volume: 0.5
+        volume: 0.5,
+        html5: true
       });
       soundRef.current.play();
     } else {
@@ -286,6 +292,12 @@ export default function App() {
     }
     return () => soundRef.current?.stop();
   }, [ambientSound, isRunning, mode]);
+
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
 
   const handleTimerComplete = async () => {
     setIsRunning(false);
@@ -296,13 +308,22 @@ export default function App() {
       playWhoosh(); // default
     }
     
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification('Saurav Focus Engine', {
+        body: mode === 'study' ? '🎯 Focus session complete! Time to recharge.' : '⚡ Break over. Ready to dominate.',
+      });
+    }
+
     if (mode === 'study') {
+      // Focus Completed
+      setSessionCount(prev => prev + 1);
+      const focusDuration = profile?.settings?.workDuration || 50;
+      setTotalFocusToday(prev => prev + focusDuration);
+
       if (user && profile) {
         const earnedXp = XP_PER_POMODORO;
         const newXp = profile.xp + earnedXp;
         const newLevel = Math.floor(newXp / 100) + 1;
-        
-        // Skill progression
         const newFocus = (profile.skills?.focus || 0) + 2;
         const newCons = (profile.skills?.consistency || 0) + 1;
 
@@ -311,7 +332,7 @@ export default function App() {
           xp: newXp,
           level: newLevel,
           pomodorosCompleted: increment(1),
-          totalFocusTime: increment(profile?.settings?.workDuration || 50),
+          totalFocusTime: increment(focusDuration),
           'skills.focus': newFocus,
           'skills.consistency': newCons
         });
@@ -319,7 +340,7 @@ export default function App() {
         await addDoc(collection(db, 'users', user.uid, 'sessions'), {
           userId: user.uid,
           taskId: selectedTaskId,
-          duration: profile?.settings?.workDuration || 50,
+          duration: focusDuration,
           timestamp: Date.now(),
           xpEarned: earnedXp
         });
@@ -329,13 +350,26 @@ export default function App() {
           await updateDoc(taskDoc, { sessions: increment(1) });
         }
       }
-      setMode('break');
-      setTimeLeft(profile?.settings?.breakDuration ? profile.settings.breakDuration * 60 : 10 * 60);
+
+      // Check if Long Break or Short Break
+      if ((sessionCount + 1) % 4 === 0) {
+        setMode('longBreak');
+        setTimeLeft((profile?.settings?.breakDuration || 15) * 60 + 5 * 60); // Long break default 15+5
+      } else {
+        setMode('shortBreak');
+        setTimeLeft((profile?.settings?.breakDuration || 5) * 60);
+      }
+
     } else {
+      // Break Completed
+      if (mode === 'longBreak') {
+        setCycleCount(prev => prev + 1);
+        setSessionCount(0);
+      }
+
       setMode('study');
       setTimeLeft(profile?.settings?.workDuration ? profile.settings.workDuration * 60 : 50 * 60);
       
-      // Update Discipline skill for completing a break and returning to work
       if (user && profile) {
         const userDoc = doc(db, 'users', user.uid);
         await updateDoc(userDoc, {
@@ -343,6 +377,7 @@ export default function App() {
         });
       }
     }
+
     if (profile?.settings?.autoStartNextSession) {
       setIsRunning(true);
     }
@@ -360,8 +395,25 @@ export default function App() {
 
   const resetTimer = () => {
     setIsRunning(false);
-    setTimeLeft(mode === 'study' ? (profile?.settings.workDuration || 50) * 60 : (profile?.settings.breakDuration || 10) * 60);
+    setTimeLeft(mode === 'study' ? (profile?.settings?.workDuration || 50) * 60 : (profile?.settings?.breakDuration || 10) * 60);
   };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if typing in an input or textarea
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        toggleTimer();
+      } else if (e.code === 'KeyS') {
+        // Only trigger Skip on 's' press
+        handleTimerComplete();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isRunning, mode, selectedTaskId, tasks, profile]);
 
   // --- Task Actions ---
   const addTask = async (title: string, category: 'study' | 'personal' | 'health' = 'study', urgent: boolean = false, sessions: number = 1) => {
@@ -416,14 +468,15 @@ export default function App() {
   const toggleHabit = async (habit: Habit) => {
     if (!user) return;
     const today = new Date().toISOString().split('T')[0];
-    const isCompleted = habit.completedDates.includes(today);
+    const completedDates = habit.completedDates || [];
+    const isCompleted = completedDates.includes(today);
     const habitDoc = doc(db, 'users', user.uid, 'habits', habit.id);
 
     if (isCompleted) {
-      const newDates = habit.completedDates.filter(d => d !== today);
+      const newDates = completedDates.filter(d => d !== today);
       await updateDoc(habitDoc, { completedDates: newDates });
     } else {
-      const newDates = [...habit.completedDates, today];
+      const newDates = [...completedDates, today];
       
       // Calculate streak (simple version)
       let currentStreak = 1;
@@ -460,11 +513,9 @@ export default function App() {
   };
 
   // --- AI Coach Logic ---
-  const sendToCoach = async () => {
-    if (!user || !aiInput.trim()) return;
-    const msg = aiInput;
-    setCoachMessages(prev => [...prev, { role: 'user', text: msg }]);
-    setAiInput('');
+  const sendToCoach = async (message: string) => {
+    if (!user || !message.trim()) return;
+    setCoachMessages(prev => [...prev, { role: 'user', text: message }]);
     setIsAiTyping(true);
 
     const context = {
@@ -473,7 +524,7 @@ export default function App() {
       habitStreak: habits.reduce((acc, h) => Math.max(acc, h.streak), 0)
     };
 
-    const response = await getAICoachResponse(msg, context);
+    const response = await getAICoachResponse(message, context);
     setCoachMessages(prev => [...prev, { role: 'ai', text: response || '' }]);
     setIsAiTyping(false);
   };
@@ -581,7 +632,7 @@ export default function App() {
   );
 
   return (
-    <div className="min-h-screen bg-background text-on-background pb-24 overflow-x-hidden selection:bg-primary/30 grain grid-bg">
+    <div className="min-h-screen bg-background text-on-background pb-24 overflow-x-hidden selection:bg-primary/30">
       <CustomCursor />
       <AnimatePresence mode="wait">
         {view === 'cinematic' ? (
@@ -594,6 +645,24 @@ export default function App() {
           >
             <HeroSection onExplore={handleDashboardTransition} />
             <StorySection onExplore={handleDashboardTransition} />
+            <HabitsSection
+              habits={habits}
+              onAdd={() => setIsAddHabitModalOpen(true)}
+              onMark={async (id) => {
+                 if(!user) return;
+                 const h = habits.find(habit => habit.id === id);
+                 if(!h) return;
+                 const today = new Date().toISOString().split('T')[0];
+                 if(h.completedDates?.includes(today)) return;
+                 await updateDoc(doc(db, 'users', user.uid, 'habits', id), {
+                   completedDates: [...(h.completedDates || []), today],
+                   streak: increment(1)
+                 });
+                 if (typeof window !== 'undefined' && window.navigator.vibrate) window.navigator.vibrate([100, 100, 100]);
+                 setStreakAchieved((h.streak || 0) + 1);
+              }}
+            />
+            <DeveloperSection />
           </motion.div>
         ) : (
           <motion.div 
@@ -643,33 +712,37 @@ export default function App() {
                     className="space-y-8"
                   >
                     {/* AI Quick Insights */}
-                    <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x">
-                      <TiltCard intensity={5} className="flex-shrink-0 w-72 h-32 snap-center">
-                        <button 
-                          onClick={() => setIsCoachOpen(true)}
-                          className="w-full h-full glass p-4 flex items-center gap-4 text-left rounded-[2rem]"
-                        >
-                          <div className="p-3 bg-blue-500/20 rounded-2xl">
-                            <Sparkles className="w-6 h-6 text-blue-400" />
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-blue-400">Coach Insight</p>
-                            <p className="text-xs font-semibold leading-relaxed mt-1">"Your discipline is your edge. Keep the streak alive."</p>
-                          </div>
-                        </button>
-                      </TiltCard>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4">
+                      <div className="h-32">
+                        <TiltCard intensity={5} className="w-full h-full">
+                          <button 
+                            onClick={() => setIsCoachOpen(true)}
+                            className="w-full h-full glass p-4 flex items-center gap-4 text-left rounded-[2rem]"
+                          >
+                            <div className="p-3 bg-blue-500/20 rounded-2xl">
+                              <Sparkles className="w-6 h-6 text-blue-400" />
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-black uppercase tracking-widest text-blue-400">Coach Insight</p>
+                              <p className="text-xs font-semibold leading-relaxed mt-1">"Your discipline is your edge. Keep the streak alive."</p>
+                            </div>
+                          </button>
+                        </TiltCard>
+                      </div>
                       
-                      <TiltCard intensity={5} className="flex-shrink-0 w-72 h-32 snap-center">
-                        <div className="w-full h-full glass p-4 flex items-center gap-4 text-left rounded-[2rem]">
-                          <div className="p-3 bg-pink-500/20 rounded-2xl">
-                            <Flame className="w-6 h-6 text-pink-400" />
+                      <div className="h-32">
+                        <TiltCard intensity={5} className="w-full h-full">
+                          <div className="w-full h-full glass p-4 flex items-center gap-4 text-left rounded-[2rem]">
+                            <div className="p-3 bg-pink-500/20 rounded-2xl">
+                              <Flame className="w-6 h-6 text-pink-400" />
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-black uppercase tracking-widest text-pink-400">JEE 2026 Countdown</p>
+                              <p className="text-lg font-black tracking-tighter">428 DAYS</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-pink-400">JEE 2026 Countdown</p>
-                            <p className="text-lg font-black tracking-tighter">428 DAYS</p>
-                          </div>
-                        </div>
-                      </TiltCard>
+                        </TiltCard>
+                      </div>
                     </div>
 
                     {/* AI Daily Quote */}
@@ -769,17 +842,18 @@ export default function App() {
                         <h3 className="text-sm font-black uppercase tracking-widest opacity-40">{t('habits')}</h3>
                         <button onClick={() => setIsAddHabitModalOpen(true)} className="text-[10px] font-black text-primary uppercase tracking-widest">+ Initialize</button>
                       </div>
-                      <div className="flex gap-4 overflow-x-auto pb-6 scrollbar-hide snap-x px-2">
+                      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 pb-6 px-2">
                         {habits.map(habit => {
                           const today = new Date().toISOString().split('T')[0];
-                          const isDone = habit.completedDates.includes(today);
+                          const isDone = (habit.completedDates || []).includes(today);
                           return (
-                            <TiltCard key={habit.id} intensity={15} className="flex-shrink-0 w-48 snap-center">
-                              <motion.div
-                                className={cn(
-                                  "w-full rounded-[2.5rem] p-6 flex flex-col gap-4 border transition-all relative overflow-hidden glass",
-                                  isDone ? "border-primary/20" : "border-white/5"
-                                )}
+                            <div key={habit.id} className="w-full">
+                              <TiltCard intensity={15} className="w-full h-full">
+                                <motion.div
+                                  className={cn(
+                                    "w-full rounded-[2.5rem] p-6 flex flex-col gap-4 border transition-all relative overflow-hidden glass",
+                                    isDone ? "border-primary/20" : "border-white/5"
+                                  )}
                               >
                                  <div className="flex justify-between items-start">
                                     <div className={cn("p-3 rounded-2xl", isDone ? "bg-primary text-white" : "bg-white/5 text-primary")}>
@@ -804,9 +878,10 @@ export default function App() {
                                     </div>
                                  </div>
 
-                                 <HabitHeatMap completedDates={habit.completedDates} />
+                                 <HabitHeatMap completedDates={habit.completedDates || []} />
                               </motion.div>
                             </TiltCard>
+                            </div>
                           );
                         })}
                       </div>
@@ -977,7 +1052,7 @@ export default function App() {
                           opacity: [0.1, 0.2, 0.1]
                         }}
                         exit={{ opacity: 0 }}
-                        className={cn("absolute inset-0 rounded-full blur-3xl -z-10", mode === 'study' ? "bg-orange-500/40" : "bg-emerald-500/40")}
+                        className={cn("absolute inset-0 rounded-full blur-3xl -z-10", mode === 'study' ? "bg-orange-500/40" : mode === 'shortBreak' ? "bg-emerald-500/40" : "bg-blue-500/40")}
                         transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                       />
                     )}
@@ -987,9 +1062,9 @@ export default function App() {
                       <motion.circle 
                         cx="50%" cy="50%" r="45%" fill="none" stroke="currentColor" strokeWidth="8"
                         strokeDasharray="100 100"
-                        strokeDashoffset={100 - (timeLeft / (mode === 'study' ? (profile?.settings?.workDuration || 50) * 60 : (profile?.settings?.breakDuration || 10) * 60) * 100)}
+                        strokeDashoffset={100 - (timeLeft / (mode === 'study' ? (profile?.settings?.workDuration || 50) * 60 : mode === 'shortBreak' ? (profile?.settings?.breakDuration || 5) * 60 : (profile?.settings?.breakDuration || 15) * 60 + 5 * 60) * 100)}
                         strokeLinecap="round"
-                        className={cn("timer-progress transition-colors duration-500 shadow-xl", mode === 'study' ? "text-orange-500" : "text-emerald-500")}
+                        className={cn("timer-progress transition-colors duration-500 shadow-xl drop-shadow-[0_0_15px_currentColor]", mode === 'study' ? "text-orange-500" : mode === 'shortBreak' ? "text-emerald-500" : "text-blue-500")}
                         pathLength="100"
                         initial={{ pathLength: 0 }}
                         animate={{ pathLength: 100 }}
@@ -1010,22 +1085,35 @@ export default function App() {
                         animate={{ y: 0, opacity: 1 }}
                         transition={{ delay: 0.1 }}
                         x="50%" y="65%" textAnchor="middle" 
-                        className={cn("text-[10px] uppercase tracking-[0.3em] font-black", mode === 'study' ? "fill-orange-500" : "fill-emerald-500")}
+                        className={cn("text-[10px] uppercase tracking-[0.3em] font-black", mode === 'study' ? "fill-orange-500" : mode === 'shortBreak' ? "fill-emerald-500" : "fill-blue-500")}
                       >
-                        {mode === 'study' ? 'Flow State' : 'Recovery'}
+                        {mode === 'study' ? 'Flow State' : mode === 'shortBreak' ? 'Short Recovery' : 'Long Recovery'}
                       </motion.text>
                     </svg>
+
+                    {/* Cycle Indicators */}
+                    <div className="absolute top-[80%] flex gap-2 w-full justify-center opacity-80">
+                       {[0, 1, 2, 3].map(dot => (
+                         <div key={dot} className={cn(
+                           "w-2 h-2 rounded-full transition-all duration-300",
+                           sessionCount > dot ? "bg-orange-500 shadow-[0_0_10px_#f97316]" : 
+                           sessionCount === dot && mode === 'study' ? "bg-orange-500/50 animate-pulse border border-orange-500" :
+                           sessionCount === dot && mode !== 'study' ? "bg-emerald-500 border border-emerald-500" :
+                           "bg-white/10"
+                         )} />
+                       ))}
+                    </div>
                   </motion.div>
                 </AnimatePresence>
               </div>
 
               {/* Controls */}
-              <div className="flex items-center gap-8">
+              <div className="flex items-center gap-6">
                 <button 
                   onClick={resetTimer}
                   className="p-4 rounded-full bg-surface-variant text-on-surface-variant hover:bg-surface transition-colors"
                 >
-                  <RotateCcw className="w-6 h-6" />
+                  <RotateCcw className="w-5 h-5" />
                 </button>
                 <button 
                   onClick={toggleTimer}
@@ -1034,27 +1122,43 @@ export default function App() {
                   {isRunning ? <Pause className="w-8 h-8 fill-white" /> : <Play className="w-8 h-8 fill-white ml-1" />}
                 </button>
                 <button 
+                  onClick={handleTimerComplete}
+                  className="p-4 rounded-full bg-surface-variant text-on-surface-variant hover:bg-surface transition-colors"
+                  title="Skip Phase"
+                >
+                  <SkipForward className="w-5 h-5" />
+                </button>
+                <button 
                   onClick={() => setIsFocusMode(!isFocusMode)}
                   className="p-4 rounded-full bg-surface-variant text-on-surface-variant hover:bg-surface transition-colors"
                 >
-                  {isFocusMode ? <Minimize2 className="w-6 h-6" /> : <Maximize2 className="w-6 h-6" />}
+                  {isFocusMode ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
                 </button>
               </div>
 
               {/* Focus Tools */}
               {!isFocusMode && (
-                <div className="grid grid-cols-2 gap-4 w-full">
-                  <div className="material-card flex items-center justify-between py-3 px-5">
-                    <span className="text-sm font-medium">Ambient</span>
+                <div className="flex flex-col md:flex-row gap-4 w-full max-w-xl mx-auto mt-8">
+                  <div className="bg-white/5 border border-white/10 flex-1 flex items-center justify-between py-4 px-6 rounded-[2rem] backdrop-blur-md">
+                    <span className="text-sm font-black tracking-widest uppercase opacity-60">Ambient</span>
                     <div className="flex gap-2">
-                       <button onClick={() => setAmbientSound(ambientSound === 'rain' ? 'none' : 'rain')} className={cn("p-2 rounded-xl", ambientSound === 'rain' ? "bg-blue-100 text-blue-600" : "bg-gray-100")}><CloudRain className="w-4 h-4" /></button>
-                       <button onClick={() => setAmbientSound(ambientSound === 'lofi' ? 'none' : 'lofi')} className={cn("p-2 rounded-xl", ambientSound === 'lofi' ? "bg-blue-100 text-blue-600" : "bg-gray-100")}><Coffee className="w-4 h-4" /></button>
-                       <button onClick={() => setAmbientSound(ambientSound === 'white' ? 'none' : 'white')} className={cn("p-2 rounded-xl", ambientSound === 'white' ? "bg-blue-100 text-blue-600" : "bg-gray-100")}><Wind className="w-4 h-4" /></button>
+                       <button onClick={() => setAmbientSound(ambientSound === 'rain' ? 'none' : 'rain')} className={cn("p-3 rounded-2xl transition-all", ambientSound === 'rain' ? "bg-primary text-white" : "bg-white/5 opacity-60 hover:opacity-100")}><CloudRain className="w-5 h-5" /></button>
+                       <button onClick={() => setAmbientSound(ambientSound === 'lofi' ? 'none' : 'lofi')} className={cn("p-3 rounded-2xl transition-all", ambientSound === 'lofi' ? "bg-primary text-white" : "bg-white/5 opacity-60 hover:opacity-100")}><Coffee className="w-5 h-5" /></button>
+                       <button onClick={() => setAmbientSound(ambientSound === 'white' ? 'none' : 'white')} className={cn("p-3 rounded-2xl transition-all", ambientSound === 'white' ? "bg-primary text-white" : "bg-white/5 opacity-60 hover:opacity-100")}><Wind className="w-5 h-5" /></button>
                     </div>
                   </div>
-                  <div className="material-card flex items-center justify-center py-3 px-5 gap-2">
-                    <Volume2 className="w-4 h-4 text-[var(--outline)]" />
-                    <input type="range" className="w-full accent-[var(--primary)]" />
+                  <div className="bg-white/5 border border-white/10 flex-1 flex items-center justify-center py-4 px-6 gap-4 rounded-[2rem] backdrop-blur-md">
+                    <Volume2 className="w-5 h-5 opacity-60" />
+                    <input 
+                      type="range" 
+                      className="w-full accent-primary" 
+                      defaultValue="50" 
+                      onChange={(e) => {
+                        if (soundRef.current) {
+                          soundRef.current.volume(Number(e.target.value) / 100);
+                        }
+                      }}
+                    />
                   </div>
                 </div>
               )}
@@ -1153,7 +1257,7 @@ export default function App() {
                 <div className="space-y-4">
                   <h4 className="text-sm font-black uppercase tracking-widest opacity-40 px-2">Global Heatmap</h4>
                   <div className="glass p-6 rounded-[2.5rem]">
-                    <HabitHeatMap completedDates={Array.from(new Set(habits.flatMap(h => h.completedDates)))} />
+                    <HabitHeatMap completedDates={Array.from(new Set(habits.flatMap(h => h.completedDates || [])))} />
                   </div>
                 </div>
               )}
@@ -1244,7 +1348,7 @@ export default function App() {
               key="profile"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="space-y-8"
+              className="space-y-8 max-w-4xl mx-auto w-full px-4 md:px-8"
             >
               <div className="flex flex-col items-center text-center space-y-4">
                 <motion.div 
@@ -1470,6 +1574,19 @@ export default function App() {
               </div>
             </motion.div>
           )}
+
+          {activeTab === 'developer' && (
+            <motion.div
+              key="developer"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-12"
+            >
+              <div className="-mx-6">
+                 <DeveloperSection />
+              </div>
+            </motion.div>
+          )}
         </AnimatePresence>
       </main>
 
@@ -1487,16 +1604,27 @@ export default function App() {
 
       {/* Bottom Navigation / M3 Rail */}
       {!isFocusMode && (
-        <nav className="fixed md:left-0 md:top-0 md:bottom-0 md:h-screen md:w-64 md:border-r border-t md:border-t-0 border-white/5 bg-md-surface/80 backdrop-blur-2xl z-40
-                        bottom-0 left-0 right-0 h-20 md:h-auto 
-                        flex md:flex-col items-center md:items-start justify-around md:justify-center md:gap-4 px-4 py-2 md:py-8
-                        shadow-[0_0_50px_rgba(0,0,0,0.5)] md:shadow-none">
-          <NavButton active={activeTab === 'home'} icon={Home} label={t('home')} onClick={() => setActiveTab('home')} />
-          <NavButton active={activeTab === 'tasks'} icon={BarChart2} label={t('tasks')} onClick={() => setActiveTab('tasks')} />
-          <NavButton active={activeTab === 'timer'} icon={Timer} label={t('timer')} onClick={() => setActiveTab('timer')} />
-          <NavButton active={activeTab === 'stats'} icon={Activity} label={t('analytics')} onClick={() => setActiveTab('stats')} />
-          <NavButton active={activeTab === 'profile'} icon={UserIcon} label={t('settings')} onClick={() => setActiveTab('profile')} />
-        </nav>
+        <>
+          {/* Desktop Nav Rail */}
+          <nav className="hidden md:flex fixed left-0 top-0 bottom-0 h-screen w-64 border-r border-white/5 bg-md-surface/80 backdrop-blur-2xl z-40
+                          flex-col items-start justify-center gap-4 px-4 py-8">
+            <NavButton active={activeTab === 'home'} icon={Home} label={t('home')} onClick={() => setActiveTab('home')} />
+            <NavButton active={activeTab === 'tasks'} icon={BarChart2} label={t('tasks')} onClick={() => setActiveTab('tasks')} />
+            <NavButton active={activeTab === 'timer'} icon={Timer} label={t('timer')} onClick={() => setActiveTab('timer')} />
+            <NavButton active={activeTab === 'stats'} icon={Activity} label={t('analytics')} onClick={() => setActiveTab('stats')} />
+            <NavButton active={activeTab === 'profile'} icon={UserIcon} label={t('settings')} onClick={() => setActiveTab('profile')} />
+            <NavButton active={activeTab === 'developer'} icon={Sparkles} label="Developer" onClick={() => setActiveTab('developer')} />
+          </nav>
+
+          {/* Mobile Bottom Tab */}
+          <nav id="mobile-nav">
+            <NavButton active={activeTab === 'home'} icon={Home} label={t('home')} onClick={() => setActiveTab('home')} />
+            <NavButton active={activeTab === 'tasks'} icon={BarChart2} label={t('tasks')} onClick={() => setActiveTab('tasks')} />
+            <NavButton active={activeTab === 'timer'} icon={Timer} label={t('timer')} onClick={() => setActiveTab('timer')} />
+            <NavButton active={activeTab === 'stats'} icon={Activity} label={t('analytics')} onClick={() => setActiveTab('stats')} />
+            <NavButton active={activeTab === 'developer'} icon={Sparkles} label="Dev" onClick={() => setActiveTab('developer')} />
+          </nav>
+        </>
       )}
 
       {/* Focus Mode floating Close */}
@@ -1559,8 +1687,7 @@ export default function App() {
                 <div className="flex flex-wrap gap-2 justify-center pb-4">
                   <button 
                     onClick={() => {
-                        const msg = "Analyze my current performance, XP, health stats, and JEE targets to suggest 3 personalized micro-tasks to optimize my day.";
-                        setAiInput(msg);
+                        sendToCoach("Analyze my current performance, XP, health stats, and JEE targets to suggest 3 personalized micro-tasks to optimize my day.");
                     }}
                     className="px-4 py-2 bg-blue-500/10 text-blue-400 rounded-full text-[10px] font-black uppercase tracking-widest border border-blue-500/20 hover:bg-blue-500/20 transition-colors"
                   >
@@ -1568,12 +1695,38 @@ export default function App() {
                   </button>
                   <button 
                     onClick={() => {
-                        const msg = "How can I improve my focus system and discipline based on my stats?";
-                        setAiInput(msg);
+                        sendToCoach("How can I improve my focus system and discipline based on my stats?");
                     }}
                     className="px-4 py-2 bg-emerald-500/10 text-emerald-400 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
                   >
                      System Optimization
+                  </button>
+                  <button 
+                    onClick={async () => {
+                        setIsAiTyping(true);
+                        setCoachMessages(prev => [...prev, { role: 'user', text: "Suggest some micro-habits based on my goals and stats." }]);
+                        const context = {
+                          profile,
+                          tasksAnalytics: {
+                            pending: tasks.filter(t => !t.completed).length,
+                            categories: tasks.reduce((acc, t) => {
+                              if (!t.completed) {
+                                acc[t.category] = (acc[t.category] || 0) + 1;
+                              }
+                              return acc;
+                            }, {} as Record<string, number>),
+                            urgent: tasks.filter(t => !t.completed && t.urgent).length
+                          },
+                          currentHabits: habits.map(h => ({ title: h.title, streak: h.streak })),
+                          habitStreakMax: habits.reduce((acc, h) => Math.max(acc, h.streak || 0), 0)
+                        };
+                        const suggestions = await getAIHabitSuggestions(context);
+                        setCoachMessages(prev => [...prev, { role: 'ai', text: "Based on your current trajectory, I highly recommend initializing these micro-habits to reinforce your discipline:", habitSuggestions: suggestions }]);
+                        setIsAiTyping(false);
+                    }}
+                    className="px-4 py-2 bg-pink-500/10 text-pink-400 rounded-full text-[10px] font-black uppercase tracking-widest border border-pink-500/20 hover:bg-pink-500/20 transition-colors"
+                  >
+                     Suggest Protocols
                   </button>
                 </div>
               )}
@@ -1590,6 +1743,30 @@ export default function App() {
                   {m.role === 'ai' ? (
                      <div className="bg-surface-variant/50 border border-outline/10 p-4 rounded-3xl">
                        <p className="text-sm leading-relaxed whitespace-pre-wrap">{m.text}</p>
+                       {m.habitSuggestions && m.habitSuggestions.length > 0 && (
+                         <div className="mt-4 flex flex-col gap-3">
+                           {m.habitSuggestions.map((hs, hIndex) => (
+                             <div key={hIndex} className="bg-background/50 border border-outline/10 p-3 rounded-2xl flex flex-col gap-2 relative overflow-hidden group">
+                                <div className="absolute inset-0 bg-gradient-to-br from-pink-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                                <div className="flex justify-between items-start relative z-10 w-full">
+                                  <div className="flex gap-2 items-center">
+                                    <div className="p-2 bg-pink-500/20 rounded-xl text-pink-400">
+                                      <Sparkles className="w-4 h-4" /> 
+                                    </div>
+                                    <span className="font-bold text-sm tracking-tight pt-1">{hs.title}</span>
+                                  </div>
+                                  <button 
+                                    onClick={() => addHabit(hs.title, hs.icon || 'Zap')}
+                                    className="text-[10px] font-black uppercase tracking-widest text-pink-400 bg-pink-500/10 px-3 py-1.5 rounded-full hover:bg-pink-500/20 whitespace-nowrap active:scale-95 transition-all"
+                                  >
+                                    Init
+                                  </button>
+                                </div>
+                                <p className="text-xs text-white/60 leading-relaxed relative z-10">{hs.description}</p>
+                             </div>
+                           ))}
+                         </div>
+                       )}
                        {i > 0 && (
                          <div className="flex gap-2 mt-4 pt-3 border-t border-white/5">
                            <button className="p-1.5 hover:bg-white/10 rounded-lg text-white/40 hover:text-green-400 transition-colors">
@@ -1616,21 +1793,7 @@ export default function App() {
             </div>
 
             <div className="p-6 border-t border-outline/20 bg-background/50">
-              <div className="flex gap-3">
-                <input 
-                  value={aiInput}
-                  onChange={(e) => setAiInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && sendToCoach()}
-                  placeholder="Ask for strategy, motivation, or JEE tips..."
-                  className="flex-1 bg-surface-variant border border-outline/30 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:border-blue-500 transition-colors"
-                />
-                <button 
-                  onClick={sendToCoach}
-                  className="p-3 bg-primary text-white rounded-2xl active:scale-90 transition-transform"
-                >
-                  <ChevronRight className="w-6 h-6" />
-                </button>
-              </div>
+              <ChatInput onSend={sendToCoach} />
             </div>
           </motion.div>
         )}

@@ -10,7 +10,7 @@ interface HeatMapProps {
   completedDates: string[];
 }
 
-export const HabitHeatMap = ({ completedDates }: HeatMapProps) => {
+export const HabitHeatMap = ({ completedDates = [] }: HeatMapProps) => {
   const today = new Date();
   const startDate = subMonths(today, 2); // Show 2 months
   const days = eachDayOfInterval({ start: startDate, end: today });
@@ -29,15 +29,12 @@ export const HabitHeatMap = ({ completedDates }: HeatMapProps) => {
           const isToday = isSameDay(day, today);
           
           return (
-            <motion.div
+            <div
               key={dateStr}
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: i * 0.005 }}
               className={cn(
                 "w-3 h-3 rounded-sm transition-colors",
-                isDone ? "bg-primary shadow-[0_0_8px_rgba(59,130,246,0.3)]" : "bg-white/5",
-                isToday && !isDone && "border border-primary/40"
+                isDone ? "bg-md-primary shadow-[0_0_8px_var(--md-primary)]" : "bg-white/5",
+                isToday && !isDone && "border border-md-primary/40"
               )}
               title={format(day, 'MMM d, yyyy')}
             />
