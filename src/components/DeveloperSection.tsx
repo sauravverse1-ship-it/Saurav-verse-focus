@@ -27,7 +27,7 @@ export const DeveloperSection: React.FC = () => {
   }, { scope: containerRef });
 
   return (
-    <section id="developer" ref={containerRef} className="relative min-h-screen w-full flex items-center justify-center py-24 overflow-hidden bg-[#020206]">
+    <section id="developer" ref={containerRef} className="relative min-h-screen w-full flex items-center justify-center py-24 overflow-hidden bg-transparent">
       {/* Background Layers */}
       <div className="absolute inset-0 z-0">
         <div className="absolute inset-0 bg-gradient-to-tr from-[#7b5fe8]/10 to-[#00ffe0]/10 blur-3xl opacity-30" />
@@ -45,7 +45,7 @@ export const DeveloperSection: React.FC = () => {
         <svg className="dev-connection-lines absolute inset-0 w-full h-full pointer-events-none" style={{ opacity: 0.15 }}>
           <path d="M50% 50% Q 60% 40%, 70% 30%" stroke="var(--md-primary)" strokeWidth="1" strokeDasharray="6,4" fill="none" />
         </svg>
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:40px_40px] opacity-10" />
+        {/* Internal grid removed to use global fixed cinematic grid */}
         
         <div className="absolute bottom-0 left-0 w-full h-64 bg-gradient-to-t from-[#020206] to-transparent" />
       </div>
@@ -57,10 +57,7 @@ export const DeveloperSection: React.FC = () => {
             <img 
               src="https://storage.googleapis.com/bit-p-storage-v1-production-09c0/865131783853/ais-attachments/8b4952d7-9ea8-4b72-9721-e37604f86d63/1745591560943.png" 
               alt="Saurav Verse" 
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                e.currentTarget.src = "https://api.dicebear.com/7.x/avataaars/svg?seed=Saurav";
-              }}
+              className="w-full h-full object-cover filter grayscale-[0.1] transition-all duration-300 hover:grayscale-0"
             />
           </div>
           {/* Neon ring animation */}

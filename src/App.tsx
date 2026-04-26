@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { AtmosphereSheet } from './components/AtmosphereSheet';
+import { playAmbientSound, stopAmbientSound, setMasterVolume } from './services/audioService';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, User, signOut, signInAnonymously } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, collection, query, where, onSnapshot, addDoc, updateDoc, increment, orderBy, limit, deleteDoc } from 'firebase/firestore';
@@ -7,16 +9,20 @@ import {
   Play, Pause, RotateCcw, CheckCircle, Home, Timer, BarChart2, User as UserIcon, 
   Plus, Settings, Volume2, VolumeX, Maximize2, Minimize2, Award, Zap, 
   CloudRain, Coffee, Wind, LogOut, BookOpen, Heart, Activity, Calendar, 
-  Trash2, Edit, ChevronRight, Hash, Clock, Brain, Target, Flame, Sparkles, MessageSquare, Battery, Droplets, Moon, Utensils, ShieldCheck, ThumbsUp, ThumbsDown, SkipForward, Star, Music, AlertCircle
+  Trash2, Edit, ChevronRight, Hash, Clock, Brain, Target, Flame, Sparkles, MessageSquare, Battery, Droplets, Moon, Utensils, ShieldCheck, ThumbsUp, ThumbsDown, SkipForward, Star, Music, AlertCircle, Trophy
 } from 'lucide-react';
 import { getAICoachResponse, getAIQuote, getAIHabitSuggestions } from './services/geminiService';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { useTranslation } from 'react-i18next';
+import { format } from 'date-fns';
 import './i18n';
 import firebaseConfig from '../firebase-applet-config.json';
 import { Howl } from 'howler';
 import { HeroSection, StorySection } from './components/CinematicSections';
+import { ExamCard } from './components/ExamCountdown/ExamCard';
+import { VitalitySection } from './components/Vitality/VitalitySection';
 import { HabitsSection } from './components/HabitsSection';
+import { HabitsGrid } from './components/HabitsGrid';
 import { DeveloperSection } from './components/DeveloperSection';
 import { TiltCard, MagneticButton } from './components/CinematicLayout';
 import { CustomCursor } from './components/CustomCursor';
@@ -31,7 +37,9 @@ import { getRank, getXPProgress, getDailyChallenges, ACHIEVEMENTS } from './lib/
 import { StreakWidget, ChallengesWidget, AchievementsModal } from './components/GamificationWidgets';
 import { playTick, playWhoosh, playBell } from './lib/audio';
 import { cn } from './lib/utils';
-import { UserProfile, Task, Habit, FocusSession } from './types';
+import { UserProfile, Task, Habit, FocusSession, SessionLog } from './types';
+import { AnalyticsView } from './components/AnalyticsView';
+import gsap from 'gsap';
 
 // --- Firebase Init ---
 const app = initializeApp(firebaseConfig);
@@ -75,9 +83,9 @@ const CATEGORIES = {
 interface AmbientTrack {
   id: string;
   label: string;
-  category: 'nature' | 'focus' | 'atmosphere';
+  category: 'nature' | 'focus' | 'atmosphere' | 'lofi';
   icon: string;
-  url: string;
+  url?: string;
 }
 
 const AMBIENT_CATEGORIES = [
@@ -87,22 +95,32 @@ const AMBIENT_CATEGORIES = [
 ];
 
 const AMBIENT_DATA: AmbientTrack[] = [
-  { id: 'rain', label: 'Rainfall', category: 'nature', icon: 'CloudRain', url: 'https://actions.google.com/sounds/v1/water/rain_on_roof.ogg' },
-  { id: 'forest', label: 'Forest', category: 'nature', icon: 'Activity', url: 'https://actions.google.com/sounds/v1/ambiences/morning_forest.ogg' },
-  { id: 'ocean', label: 'Waves', category: 'nature', icon: 'Droplets', url: 'https://actions.google.com/sounds/v1/water/waves_clashing.ogg' },
-  { id: 'stream', label: 'Stream', category: 'nature', icon: 'Droplets', url: 'https://actions.google.com/sounds/v1/water/mountain_stream.ogg' },
-  { id: 'birds', label: 'Birds', category: 'nature', icon: 'Activity', url: 'https://actions.google.com/sounds/v1/ambiences/morning_forest.ogg' },
-  { id: 'lofi', label: 'Lofi Cafe', category: 'atmosphere', icon: 'Coffee', url: 'https://actions.google.com/sounds/v1/ambiences/coffee_shop.ogg' },
-  { id: 'jazz', label: 'Jazz Bar', category: 'atmosphere', icon: 'Music', url: 'https://actions.google.com/sounds/v1/ambiences/quiet_restaurant.ogg' },
-  { id: 'study', label: 'Industrial', category: 'focus', icon: 'Hash', url: 'https://actions.google.com/sounds/v1/ambiences/industrial_hum_loop.ogg' },
-  { id: 'white', label: 'White Noise', category: 'focus', icon: 'Wind', url: 'https://actions.google.com/sounds/v1/water/waves_crashing_on_rock_beach.ogg' },
-  { id: 'cyberpunk', label: 'Synth Hum', category: 'atmosphere', icon: 'Zap', url: 'https://actions.google.com/sounds/v1/science_fiction/teleport_beam.ogg' },
+  // Lofi
+  { id: 'lofi', label: 'Lofi Beats', category: 'lofi', icon: 'Music' },
+  { id: 'chillhop', label: 'Chillhop', category: 'lofi', icon: 'Headphones' },
+  // Focus
+  { id: 'brown-noise', label: 'Brown Noise', category: 'focus', icon: 'Waves' },
+  { id: 'deep-focus', label: 'Deep Focus (Binaural)', category: 'focus', icon: 'Brain' },
+  { id: 'white-noise', label: 'White Noise', category: 'focus', icon: 'Wind' },
+  // Nature
+  { id: 'rain', label: 'Heavy Rain', category: 'nature', icon: 'CloudRain', url: 'https://actions.google.com/sounds/v1/water/rain_on_roof.ogg' },
+  { id: 'forest', label: 'Morning Forest', category: 'nature', icon: 'Activity', url: 'https://actions.google.com/sounds/v1/ambiences/morning_forest.ogg' },
+  { id: 'waves', label: 'Ocean Waves', category: 'nature', icon: 'Droplets', url: 'https://actions.google.com/sounds/v1/water/waves_clashing.ogg' },
+  // Atmosphere
+  { id: 'cafe', label: 'Café Ambience', category: 'atmosphere', icon: 'Coffee' },
 ];
 
 const AMBIENT_TRACKS = AMBIENT_DATA.reduce((acc, track) => {
-  acc[track.id] = track.url;
+  if (track.url) acc[track.id] = track.url;
   return acc;
 }, {} as Record<string, string>);
+
+const DEFAULT_SUBJECTS = [
+  { id: 'math', name: 'Mathematics', color: '#FFAB76' },
+  { id: 'physics', name: 'Physics', color: '#4FC3F7' },
+  { id: 'chemistry', name: 'Chemistry', color: '#A5D6A7' },
+  { id: 'biology', name: 'Biology', color: '#F48FB1' },
+];
 
 // --- Components ---
 
@@ -193,7 +211,7 @@ export default function App() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [habits, setHabits] = useState<Habit[]>([]);
-  const [activeTab, setActiveTab] = useState<'home' | 'tasks' | 'timer' | 'stats' | 'profile' | 'developer'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'tasks' | 'habits' | 'timer' | 'stats' | 'profile'>('home');
   const [loading, setLoading] = useState(true);
 
   // AI Coach State
@@ -223,11 +241,16 @@ export default function App() {
   const [sessionCount, setSessionCount] = useState(0);
   const [cycleCount, setCycleCount] = useState(0);
   const [dailyGoalMins, setDailyGoalMins] = useState(120);
-  const [totalFocusToday, setTotalFocusToday] = useState(0);
   const [isPlayingTick, setIsPlayingTick] = useState(false);
 
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [customSubjects, setCustomSubjects] = useState<{ id: string; name: string; color: string }[]>([]);
+  const [selectedSubjectFilter, setSelectedSubjectFilter] = useState<string>('All');
+
+  // Subjects combination
+  const allSubjects = [...DEFAULT_SUBJECTS, ...customSubjects];
   const [isFocusMode, setIsFocusMode] = useState(false);
+  const [isAtmosphereSheetOpen, setIsAtmosphereSheetOpen] = useState(false);
   const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
   const [addTaskCategory, setAddTaskCategory] = useState<'study' | 'health' | 'personal'>('study');
   const [isAddHabitModalOpen, setIsAddHabitModalOpen] = useState(false);
@@ -239,6 +262,94 @@ export default function App() {
   const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
   const [focusScore, setFocusScore] = useState<number | null>(null);
   const [breakActivity, setBreakActivity] = useState<string>("");
+  const [sessionLogs, setSessionLogs] = useState<SessionLog[]>([]);
+
+  // Part 2 & 3 Timer States
+  const [showScoreCard, setShowScoreCard] = useState(false);
+  const [currentScore, setCurrentScore] = useState(0);
+  const ringContainerRef = useRef<HTMLDivElement>(null);
+  const orbitDotRef = useRef<HTMLDivElement>(null);
+  const orbitAngleRef = useRef(-60);
+  const orbitSpeedRef = useRef(0.18);
+
+  useEffect(() => {
+    orbitSpeedRef.current = isRunning ? 0.35 : 0.18;
+  }, [isRunning]);
+
+  useEffect(() => {
+    const ticker = () => {
+      if (!orbitDotRef.current || !ringContainerRef.current) return;
+      const b = ringContainerRef.current.getBoundingClientRect();
+      const cx = b.width / 2;
+      const cy = b.height / 2;
+      const rad = b.width * 0.45;
+      orbitAngleRef.current += orbitSpeedRef.current;
+      const a = (orbitAngleRef.current * Math.PI) / 180;
+      gsap.set(orbitDotRef.current, {
+        left: cx + rad * Math.cos(a),
+        top: cy + rad * Math.sin(a)
+      });
+    };
+    gsap.ticker.add(ticker);
+    return () => gsap.ticker.remove(ticker);
+  }, []);
+
+  useEffect(() => {
+    try {
+        const logs = localStorage.getItem('pomodoro_sessions');
+        if (logs) setSessionLogs(JSON.parse(logs));
+    } catch (e) { console.error("Could not parse logs", e); }
+  }, []);
+
+  // Sync Firebase sessions for logged in users
+  useEffect(() => {
+    if (!user) return;
+    const q = query(collection(db, 'users', user.uid, 'sessions'), orderBy('timestamp', 'desc'), limit(100));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fbSessions: SessionLog[] = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          duration: data.duration,
+          timestamp: data.timestamp,
+          type: 'focus',
+          missionTitle: data.missionTitle || 'Focus Session',
+          subject: data.subject || data.taskId ? tasks.find(t => t.id === data.taskId)?.subjects?.[0] : null,
+          completed: true
+        };
+      });
+
+      setSessionLogs(prev => {
+        // Merge local logs (which might have breaks/incomplete sessions) with firebase focus sessions
+        const localOnly = prev.filter(l => !l.completed || l.type === 'break');
+        const merged = [...fbSessions, ...localOnly];
+        // Remove duplicates by id
+        const unique = Array.from(new Map(merged.map(item => [item.id, item])).values());
+        return unique.sort((a,b) => b.timestamp - a.timestamp);
+      });
+    });
+    return () => unsubscribe();
+  }, [user, tasks]);
+
+  const streak = useMemo(() => {
+     if (sessionLogs.length === 0) return 0;
+     const dates = Array.from(new Set(sessionLogs.filter(l => l.completed).map(l => new Date(l.timestamp).toDateString()))).sort((a: string, b: string) => new Date(b).getTime() - new Date(a).getTime());
+     let currentStreak = 0;
+     let checkDate = new Date();
+     while (true) {
+         if (dates.includes(checkDate.toDateString())) {
+             currentStreak++;
+             checkDate.setDate(checkDate.getDate() - 1);
+         } else {
+             if (currentStreak === 0 && checkDate.toDateString() === new Date().toDateString()) {
+                 checkDate.setDate(checkDate.getDate() - 1); // allow missing today
+                 continue;
+             }
+             break;
+         }
+     }
+     return currentStreak;
+  }, [sessionLogs]);
 
   const { 
     xpLabels, 
@@ -258,6 +369,7 @@ export default function App() {
     setIsAddTaskModalOpen(true);
   };
   const [ambientSound, setAmbientSound] = useState<string>('none');
+  const [activeAmbientTrack, setActiveAmbientTrack] = useState<AmbientTrack | null>(null);
   const [ambientVolume, setAmbientVolume] = useState(0.5);
   const [activeAmbientCategory, setActiveAmbientCategory] = useState<string>('nature');
   const soundRef = useRef<Howl | null>(null);
@@ -313,7 +425,7 @@ export default function App() {
               dailyChallenges: getDailyChallenges(new Date().toISOString().split('T')[0]),
               streakShields: 0,
               lastActiveDate: new Date().toISOString().split('T')[0],
-              totalFocusTime: 0,
+              totalFocusSeconds: 0,
               pomodorosCompleted: 0,
               health: {
                 water: 0,
@@ -372,16 +484,48 @@ export default function App() {
     };
   }, []);
 
+  const [currentSessionSeconds, setCurrentSessionSeconds] = useState(0);
+  const [taskView, setTaskView] = useState<'active' | 'completed'>('active');
+
+  const totalFocusToday = useMemo(() => {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    
+    const todaySecondsFromLogs = sessionLogs
+      .filter(log => log.timestamp >= startOfToday)
+      .reduce((acc, log) => acc + log.duration, 0);
+      
+    return Math.floor((todaySecondsFromLogs + currentSessionSeconds) / 60);
+  }, [sessionLogs, currentSessionSeconds]);
+
   // --- Timer Logic ---
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (isRunning && timeLeft > 0) {
-      interval = setInterval(() => setTimeLeft(t => t - 1), 1000);
+      interval = setInterval(() => {
+        setTimeLeft(t => t - 1);
+        if (mode === 'study') {
+          setCurrentSessionSeconds(s => s + 1);
+        }
+      }, 1000);
     } else if (timeLeft === 0) {
       handleTimerComplete();
     }
     return () => clearInterval(interval);
-  }, [isRunning, timeLeft]);
+  }, [isRunning, timeLeft, mode]);
+
+  // Sync focus time to profile occasionally
+  useEffect(() => {
+    if (currentSessionSeconds > 0 && currentSessionSeconds % 60 === 0 && user) {
+      const updateFocus = async () => {
+        const userDoc = doc(db, 'users', user.uid);
+        await updateDoc(userDoc, {
+          totalFocusSeconds: increment(60)
+        });
+      };
+      updateFocus();
+    }
+  }, [currentSessionSeconds, user]);
 
   // Ambient Sound Logic
   useEffect(() => {
@@ -438,20 +582,33 @@ export default function App() {
 
     try {
       if (mode === 'study') {
-        // Suggest activity based on stats
-        const water = profile?.health?.water || 0;
-        const sleep = profile?.health?.sleep || 0;
-        if (water < 8) setBreakActivity("Hydration Low! Drink 500ml water.");
-        else if (sleep < 6) setBreakActivity("Fatigue Alert! Try a 15-min power nap.");
-        else setBreakActivity("Focus high! Do 10 pushups to keep blood flowing.");
-
+        const score = calculateFocusScore();
+        setCurrentScore(score);
+        setShowScoreCard(true);
+        
         const xpEarned = 100 + (score * 2);
         await awardXP(xpEarned, 'focus', score > 90 ? 'FLAWLESS FOCUS' : 'SESSION COMPLETE');
         launchConfetti({ origin: { x: 0.5, y: 0.4 }, count: 60 });
 
-        const focusDuration = profile?.settings?.workDuration || 50;
-        setTotalFocusToday(prev => prev + focusDuration);
+        const recordedSeconds = currentSessionSeconds;
         setSessionCount(prev => prev + 1);
+
+        const sessionId = Date.now().toString();
+        const newSessionLog: SessionLog = {
+           id: sessionId,
+           duration: recordedSeconds,
+           timestamp: Date.now(),
+           type: 'focus',
+           missionTitle: sessionIntention || 'Focus Session',
+           subject: selectedTaskId ? tasks.find(t => t.id === selectedTaskId)?.subjects?.[0] : null,
+           completed: true
+        };
+        
+        setSessionLogs(prev => {
+           const updated = [...prev, newSessionLog];
+           localStorage.setItem('pomodoro_sessions', JSON.stringify(updated));
+           return updated;
+        });
 
         if (user && profile) {
           const newFocus = (profile.skills?.focus || 0) + 2;
@@ -460,33 +617,42 @@ export default function App() {
           const userDoc = doc(db, 'users', user.uid);
           await updateDoc(userDoc, {
             pomodorosCompleted: increment(1),
-            totalFocusTime: increment(focusDuration),
+            totalFocusSeconds: increment(recordedSeconds),
             'skills.focus': newFocus,
             'skills.consistency': newCons
           });
 
-          await addDoc(collection(db, 'users', user.uid, 'sessions'), {
+          await setDoc(doc(db, 'users', user.uid, 'sessions', sessionId), {
             userId: user.uid,
             taskId: selectedTaskId,
-            duration: focusDuration,
+            duration: recordedSeconds,
             timestamp: Date.now(),
-            xpEarned: xpEarned
+            xpEarned: xpEarned,
+            missionTitle: sessionIntention || 'Focus Session',
+            subject: selectedTaskId ? tasks.find(t => t.id === selectedTaskId)?.subjects?.[0] : null,
           });
 
           if (selectedTaskId) {
             const taskDoc = doc(db, 'users', user.uid, 'tasks', selectedTaskId);
             await updateDoc(taskDoc, { sessions: increment(1) });
           }
+
+          setCurrentSessionSeconds(0);
         }
 
-        // Check if Long Break or Short Break
-        if ((sessionCount + 1) % 4 === 0) {
-          setMode('longBreak');
-          setTimeLeft((profile?.settings?.breakDuration || 15) * 60 + 5 * 60); // Long break default 15+5
-        } else {
-          setMode('shortBreak');
-          setTimeLeft((profile?.settings?.breakDuration || 5) * 60);
-        }
+        // Auto-cycle logic
+        setTimeout(() => {
+          if ((sessionCount + 1) % 4 === 0) {
+            setMode('longBreak');
+            setTimeLeft((profile?.settings?.breakDuration || 15) * 60 + 5 * 60);
+          } else {
+            setMode('shortBreak');
+            setTimeLeft((profile?.settings?.breakDuration || 5) * 60);
+          }
+          if (profile?.settings?.autoStartNextSession) {
+            setIsRunning(true);
+          }
+        }, 5000);
 
       } else {
         // Break Completed
@@ -503,6 +669,10 @@ export default function App() {
           await updateDoc(userDoc, {
             'skills.discipline': (profile.skills?.discipline || 0) + 2
           });
+        }
+
+        if (profile?.settings?.autoStartNextSession) {
+          setTimeout(() => setIsRunning(true), 1500);
         }
       }
     } catch (error) {
@@ -545,8 +715,32 @@ export default function App() {
   };
 
   const resetTimer = () => {
+    if (mode === 'study' && currentSessionSeconds > 0) {
+        const recordedSeconds = currentSessionSeconds;
+        const newSessionLog: SessionLog = {
+           id: Date.now().toString(),
+           duration: recordedSeconds,
+           timestamp: Date.now(),
+           type: 'focus',
+           missionTitle: sessionIntention || 'Focus Session',
+           subject: selectedTaskId ? tasks.find(t => t.id === selectedTaskId)?.subjects?.[0] : null,
+           completed: false // Manual reset means not completed the full timer
+        };
+        setSessionLogs(prev => {
+           const updated = [...prev, newSessionLog];
+           localStorage.setItem('pomodoro_sessions', JSON.stringify(updated));
+           return updated;
+        });
+        
+        if (user) {
+          updateDoc(doc(db, 'users', user.uid), {
+            totalFocusSeconds: increment(recordedSeconds)
+          });
+        }
+    }
     setIsRunning(false);
     setTimeLeft(mode === 'study' ? (profile?.settings?.workDuration || 50) * 60 : (profile?.settings?.breakDuration || 10) * 60);
+    setCurrentSessionSeconds(0);
   };
 
   useEffect(() => {
@@ -567,8 +761,9 @@ export default function App() {
   }, [isRunning, mode, selectedTaskId, tasks, profile]);
 
   // --- Task Actions ---
-  const addTask = async (title: string, category: 'study' | 'personal' | 'health' = 'study', urgent: boolean = false, sessions: number = 1) => {
+  const addTask = async (title: string, category: 'study' | 'personal' | 'health' = 'study', urgent: boolean = false, sessions: number = 1, subjectId?: string | string[]) => {
     if (!user || !title.trim()) return;
+    const finalSubjects = Array.isArray(subjectId) ? subjectId : (subjectId ? [subjectId] : []);
     await addDoc(collection(db, 'users', user.uid, 'tasks'), {
       userId: user.uid,
       title,
@@ -578,6 +773,7 @@ export default function App() {
       sessions: 0,
       expectedSessions: sessions,
       category,
+      subjects: finalSubjects,
       priority: urgent ? 'high' : 'medium',
       createdAt: Date.now()
     });
@@ -593,10 +789,13 @@ export default function App() {
   const toggleTask = async (task: Task) => {
     if (!user) return;
     const taskDoc = doc(db, 'users', user.uid, 'tasks', task.id);
-    await updateDoc(taskDoc, { completed: !task.completed });
+    await updateDoc(taskDoc, { 
+      completed: !task.completed,
+      completedAt: !task.completed ? Date.now() : null
+    });
     // Award XP
     if (!task.completed) {
-      awardXP(15, 'tasks', 'OBJECTIVE SECURED');
+      awardXP(25, 'tasks', 'OBJECTIVE SECURED');
       launchConfetti({ origin: { x: 0.5, y: 0.2 }, count: 30 });
     }
   };
@@ -616,9 +815,20 @@ export default function App() {
     });
   };
 
+  const deleteHabit = async (habitId: string) => {
+    if (!user) return;
+    try {
+      const habitDoc = doc(db, 'users', user.uid, 'habits', habitId);
+      await deleteDoc(habitDoc);
+      playWhoosh();
+    } catch (e) {
+      console.error("Delete habit failed:", e);
+    }
+  };
+
   const toggleHabit = async (habit: Habit) => {
     if (!user) return;
-    const today = new Date().toISOString().split('T')[0];
+    const today = format(new Date(), 'yyyy-MM-dd');
     const completedDates = habit.completedDates || [];
     const isCompleted = completedDates.includes(today);
     const habitDoc = doc(db, 'users', user.uid, 'habits', habit.id);
@@ -838,6 +1048,7 @@ export default function App() {
                  if (typeof window !== 'undefined' && window.navigator.vibrate) window.navigator.vibrate([100, 100, 100]);
                  setStreakAchieved((h.streak || 0) + 1);
               }}
+              onDelete={deleteHabit}
             />
             <DeveloperSection />
           </motion.div>
@@ -846,55 +1057,60 @@ export default function App() {
             key="dashboard"
             initial={{ opacity: 0, scale: 1.1 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="min-h-screen md:ml-64 flex flex-col"
+            className={cn("min-h-screen flex flex-col transition-all duration-700", !isFocusMode && "md:ml-64")}
           >
             {/* Header / Stats Overlay */}
-            <header className="p-6 flex items-center justify-between sticky top-0 bg-background/80 backdrop-blur-md z-30">
-              <div className="flex items-center gap-3">
-                <div 
-                  onClick={() => setView('cinematic')}
-                  className="w-10 h-10 rounded-full overflow-hidden border-2 cursor-pointer hover:scale-110 transition-transform"
-                  style={{ borderColor: getRank(profile?.allTimeXP || 0).color }}
-                >
-                  <img src={user?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid}`} alt="avatar" className="w-full h-full object-cover" />
-                </div>
-                <div>
-                   <div className="flex items-center gap-2">
-                      <h2 className="font-semibold text-sm">Hello, {user?.displayName?.split(' ')[0] || 'Aspirant'}</h2>
-                      <span 
-                        className={cn("text-[9px] font-black uppercase px-2 py-0.5 rounded-full border", getRank(profile?.allTimeXP || 0).name === 'LEGEND' ? 'text-legend' : '')}
-                        style={getRank(profile?.allTimeXP || 0).name !== 'LEGEND' ? { color: getRank(profile?.allTimeXP || 0).color, borderColor: `${getRank(profile?.allTimeXP || 0).color}40` } : {}}
-                      >
-                         {getRank(profile?.allTimeXP || 0).name}
-                      </span>
-                   </div>
-                  <div className="flex flex-col gap-1 mt-1">
-                    <div className="flex items-center justify-between w-32">
-                        <span className="text-[8px] font-bold text-on-surface-variant/40 uppercase tracking-widest">{profile?.allTimeXP || 0} Total XP</span>
-                        <span className="text-[8px] font-bold text-md-primary">{Math.floor(getXPProgress(profile?.allTimeXP || 0).progress)}%</span>
-                    </div>
-                    <div className="h-1 w-32 bg-white/5 rounded-full overflow-hidden">
-                        <motion.div 
-                          initial={{ width: 0 }}
-                          animate={{ width: `${getXPProgress(profile?.allTimeXP || 0).progress}%` }}
-                          className="h-full bg-md-primary shadow-[0_0_8px_var(--md-primary)]"
-                        />
+            {!isFocusMode && (
+              <header className="p-6 flex items-center justify-between sticky top-0 bg-background/80 backdrop-blur-md z-30">
+                <div className="flex items-center gap-3">
+                  <div 
+                    onClick={() => setView('cinematic')}
+                    className="w-10 h-10 rounded-full overflow-hidden border-2 cursor-pointer hover:scale-110 transition-transform"
+                    style={{ borderColor: getRank(profile?.allTimeXP || 0).color }}
+                  >
+                    <img src={user?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid}`} alt="avatar" className="w-full h-full object-cover" />
+                  </div>
+                  <div>
+                     <div className="flex items-center gap-2">
+                        <h2 className="font-semibold text-sm">Hello, {user?.displayName?.split(' ')[0] || 'Aspirant'}</h2>
+                        <span 
+                          className={cn("text-[9px] font-black uppercase px-2 py-0.5 rounded-full border", getRank(profile?.allTimeXP || 0).name === 'LEGEND' ? 'text-legend' : '')}
+                          style={getRank(profile?.allTimeXP || 0).name !== 'LEGEND' ? { color: getRank(profile?.allTimeXP || 0).color, borderColor: `${getRank(profile?.allTimeXP || 0).color}40` } : {}}
+                        >
+                           {getRank(profile?.allTimeXP || 0).name}
+                        </span>
+                     </div>
+                    <div className="flex flex-col gap-1 mt-1">
+                      <div className="flex items-center justify-between w-32">
+                          <span className="text-[8px] font-bold text-on-surface-variant/40 uppercase tracking-widest">{profile?.allTimeXP || 0} Total XP</span>
+                          <span className="text-[8px] font-bold text-md-primary">{Math.floor(getXPProgress(profile?.allTimeXP || 0).progress)}%</span>
+                      </div>
+                      <div className="h-1 w-32 bg-white/5 rounded-full overflow-hidden">
+                          <motion.div 
+                            initial={{ width: 0 }}
+                            animate={{ width: `${getXPProgress(profile?.allTimeXP || 0).progress}%` }}
+                            className="h-full bg-md-primary shadow-[0_0_8px_var(--md-primary)]"
+                          />
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <MagneticButton 
-                  onClick={() => setActiveTab('profile')}
-                  className="p-3 bg-white/5 text-on-surface-variant rounded-2xl border border-white/10"
-                >
-                   <Settings className="w-5 h-5" />
-                </MagneticButton>
-              </div>
-            </header>
+                <div className="flex items-center gap-2">
+                  <MagneticButton 
+                    onClick={() => setActiveTab('profile')}
+                    className="p-3 bg-white/5 text-on-surface-variant rounded-2xl border border-white/10"
+                  >
+                     <Settings className="w-5 h-5" />
+                  </MagneticButton>
+                </div>
+              </header>
+            )}
 
             {/* Main Content Area */}
-            <main className="p-6 max-w-2xl mx-auto space-y-12">
+            <main className={cn(
+              "flex-1 overflow-x-hidden",
+              isFocusMode ? "p-0" : "p-6 md:p-12 pb-32 md:pb-12 max-w-2xl lg:max-w-4xl mx-auto space-y-12"
+            )}>
               <AnimatePresence mode="wait">
                 {activeTab === 'home' && (
                   <motion.div 
@@ -930,12 +1146,17 @@ export default function App() {
                               <Flame className="w-6 h-6 text-pink-400" />
                             </div>
                             <div>
-                              <p className="text-[10px] font-black uppercase tracking-widest text-pink-400">JEE 2026 Countdown</p>
-                              <p className="text-lg font-black tracking-tighter">428 DAYS</p>
+                              <p className="text-[10px] font-black uppercase tracking-widest text-pink-400">Current Streak</p>
+                              <p className="text-lg font-black tracking-tighter">{streak} DAYS</p>
                             </div>
                           </div>
                         </TiltCard>
                       </div>
+                    </div>
+
+                    {/* Exam Countdown */}
+                    <div className="pb-4">
+                      <ExamCard onNavigateToTasks={() => setActiveTab('tasks')} />
                     </div>
 
                     {/* AI Daily Quote */}
@@ -1049,33 +1270,8 @@ export default function App() {
                       </TiltCard>
                     </div>
 
-                    {/* Health Tracker Quick Log */}
-                    <section className="space-y-4">
-                      <h3 className="text-sm font-black uppercase tracking-widest opacity-40 px-2">Vitality Base</h3>
-                      <div className="grid grid-cols-3 gap-3">
-                        <MagneticButton 
-                          onClick={() => logHealth('water', 1)}
-                          className="glass p-4 rounded-[2rem] flex flex-col items-center gap-2 hover:bg-blue-500/5 group"
-                        >
-                          <Droplets className="w-5 h-5 text-blue-400 group-hover:scale-125 transition-transform" />
-                          <span className="text-xs font-bold">{profile?.health?.water || 0}</span>
-                        </MagneticButton>
-                        <MagneticButton 
-                          onClick={() => logHealth('protein', 10)}
-                          className="glass p-4 rounded-[2rem] flex flex-col items-center gap-2 hover:bg-pink-500/5 group"
-                        >
-                          <Utensils className="w-5 h-5 text-pink-400 group-hover:scale-125 transition-transform" />
-                          <span className="text-xs font-bold">{profile?.health?.protein || 0}g</span>
-                        </MagneticButton>
-                        <MagneticButton 
-                          onClick={() => logHealth('sleep', 0.5)}
-                          className="glass p-4 rounded-[2rem] flex flex-col items-center gap-2 hover:bg-purple-500/5 group"
-                        >
-                          <Moon className="w-5 h-5 text-purple-400 group-hover:scale-125 transition-transform" />
-                          <span className="text-xs font-bold">{profile?.health?.sleep || 0}h</span>
-                        </MagneticButton>
-                      </div>
-                    </section>
+                    {/* Health Tracker Dashboard */}
+                    <VitalitySection />
 
                     {/* Daily Challenges */}
                     <section className="space-y-4">
@@ -1160,30 +1356,48 @@ export default function App() {
                       </div>
                     </section>
 
-                    {/* Mission Roster */}
+                     {/* Mission Roster */}
                     <section className="space-y-6">
-                      <div className="flex items-center justify-between px-2">
-                        <div className="flex flex-col gap-3 w-full">
+                      <div className="flex flex-col gap-4">
+                        <div className="flex items-center justify-between px-2">
                            <h3 className="text-sm font-bold uppercase tracking-widest text-white/40">Tactical Roster</h3>
-                           <div className="flex bg-md-surface-3 rounded-full p-1 border border-white/5 w-fit">
-                             {(['priority', 'urgent', 'deadline'] as const).map((key) => (
-                               <button 
-                                 key={key}
-                                 onClick={() => setTaskSortKey(key)} 
-                                 className={cn(
-                                   "px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all duration-300",
-                                   taskSortKey === key ? "bg-md-secondary-cont text-md-on-secondary-cont shadow-sm" : "text-white/40 hover:text-white"
-                                 )}
-                               >
-                                 {key === 'priority' ? 'PRIO' : key === 'urgent' ? 'URGENT' : 'DUE'}
-                               </button>
-                             ))}
+                           <div className="flex bg-white/5 rounded-full p-1 border border-white/10">
+                              <button 
+                                onClick={() => setTaskView('active')}
+                                className={cn("px-4 py-1.5 rounded-full text-[10px] font-black uppercase transition-all", taskView === 'active' ? "bg-primary text-white" : "text-white/40")}
+                              >
+                                Active
+                              </button>
+                              <button 
+                                onClick={() => setTaskView('completed')}
+                                className={cn("px-4 py-1.5 rounded-full text-[10px] font-black uppercase transition-all", taskView === 'completed' ? "bg-green-500 text-white" : "text-white/40")}
+                              >
+                                Completed
+                              </button>
                            </div>
                         </div>
+                        
+                        {taskView === 'active' && (
+                          <div className="flex bg-md-surface-3 rounded-full p-1 border border-white/5 w-fit ml-2">
+                            {(['priority', 'urgent', 'deadline'] as const).map((key) => (
+                              <button 
+                                key={key}
+                                onClick={() => setTaskSortKey(key)} 
+                                className={cn(
+                                  "px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all duration-300",
+                                  taskSortKey === key ? "bg-md-secondary-cont text-md-on-secondary-cont shadow-sm" : "text-white/40 hover:text-white"
+                                )}
+                              >
+                                {key === 'priority' ? 'PRIO' : key === 'urgent' ? 'URGENT' : 'DUE'}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                       
                       <div className="space-y-4">
-                        {tasks.filter(t => !t.completed).sort((a, b) => {
+                        {tasks.filter(t => taskView === 'active' ? !t.completed : t.completed).sort((a, b) => {
+                          if (taskView === 'completed') return (b.completedAt || 0) - (a.completedAt || 0);
                           if (taskSortKey === 'priority') {
                             const prio = { high: 3, medium: 2, low: 1 };
                             return prio[b.priority] - prio[a.priority];
@@ -1219,13 +1433,20 @@ export default function App() {
                                 <div>
                                   <div className="flex items-center gap-2">
                                     <h4 className={cn("font-bold text-sm", task.completed && "line-through opacity-40")}>{task.title}</h4>
-                                    {task.urgent && (
+                                    {task.urgent && !task.completed && (
                                       <span className="px-2 py-0.5 bg-red-500/20 text-red-500 text-[8px] font-black uppercase tracking-widest rounded-full animate-pulse border border-red-500/30">
                                         {t('urgent')}
                                       </span>
                                     )}
                                   </div>
-                                  <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-30 italic">{task.category}</p>
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-30 italic">{task.category}</p>
+                                    {task.completed && task.completedAt && (
+                                      <span className="text-[8px] font-bold opacity-20 uppercase tracking-widest">
+                                        • Completed {new Date(task.completedAt).toLocaleDateString()}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                               <div className="flex items-center gap-3">
@@ -1240,320 +1461,253 @@ export default function App() {
                             </motion.div>
                           );
                         })}
-                        {tasks.filter(t => !t.completed).length === 0 && (
+                        {tasks.filter(t => taskView === 'active' ? !t.completed : t.completed).length === 0 && (
                           <div className="text-center py-20 border-2 border-dashed border-white/5 rounded-[3rem] opacity-30">
-                            <p className="text-xs font-black uppercase tracking-[0.3em]">No Active Deployments</p>
+                            <p className="text-xs font-black uppercase tracking-[0.3em]">
+                              {taskView === 'active' ? 'No Active Deployments' : 'No Completed Missions'}
+                            </p>
                           </div>
                         )}
                       </div>
                     </section>
                   </motion.div>
                 )}
-
-          {activeTab === 'timer' && (
+                {activeTab === 'timer' && (
             <motion.div 
               key="timer"
-              id="timer-screen"
+              id="s-timer"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className={cn(
-                "page-content flex flex-col items-center w-full max-w-4xl mx-auto transition-all duration-700 px-4",
-                isFocusMode ? "bg-zinc-950 fixed inset-0 z-[60] py-12 justify-center" : "relative"
-              )}
             >
-              {/* Session Context Row */}
+              {/* Profile Header removed because it's duplicate */}
+
+              {/* Mode Tabs */}
               {!isFocusMode && (
-                <div className="w-full flex items-center justify-between mb-8 opacity-60 px-4">
-                   <div className="flex flex-col">
-                      <span className="text-[10px] font-black uppercase tracking-widest">Active Streak</span>
-                      <div className="flex items-center gap-1">
-                        <Flame className="w-3 h-3 text-amber-500" />
-                        <span className="text-xs font-bold">{profile?.streak || 0} Sessions</span>
+                <div id="t-mode-tabs">
+                  <div 
+                    className={cn("mode-tab", mode === 'study' && "active")}
+                    onClick={() => { setMode('study'); setTimeLeft((profile?.settings?.workDuration || 25) * 60); setIsRunning(false); }}
+                  >
+                    <span>FOCUS</span>
+                  </div>
+                  <div 
+                    className={cn("mode-tab", (mode === 'shortBreak' || mode === 'longBreak') && "active")}
+                    onClick={() => { setMode('shortBreak'); setTimeLeft((profile?.settings?.breakDuration || 5) * 60); setIsRunning(false); }}
+                  >
+                    <span>BREAK</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Timer Ring Area */}
+              <div id="t-ring-area" className={cn(isFocusMode && "justify-center -mt-12 scale-110")}>
+                <div id="ring-container" ref={ringContainerRef} className={cn(isFocusMode && "scale-110")}>
+                  <svg id="ring-svg" viewBox="0 0 320 320">
+                    <defs>
+                      <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#00ffe0"/>
+                        <stop offset="100%" stopColor="#7b5fe8"/>
+                      </linearGradient>
+                    </defs>
+                    <circle className="ring-deco animate-spin-slow" cx="160" cy="160" r="152"/>
+                    <circle className="ring-track" cx="160" cy="160" r="144" transform="rotate(-90,160,160)"/>
+                    <motion.circle 
+                      className="ring-prog" 
+                      cx="160" cy="160" r="144"
+                      transform="rotate(-90,160,160)"
+                      strokeDasharray="905"
+                      animate={{ strokeDashoffset: 905 * (1 - timeLeft / (mode === 'study' ? (profile?.settings?.workDuration || 25) * 60 : (profile?.settings?.breakDuration || 5) * 60)) }}
+                    />
+                  </svg>
+
+                  <div id="orbit-dot" ref={orbitDotRef}></div>
+
+                  <div id="ring-center">
+                    <div id="t-time">{formatTime(timeLeft)}</div>
+                    <div id="t-mode-label" style={{ color: mode === 'study' ? 'var(--neon)' : 'var(--violet)' }}>
+                      {mode === 'study' ? 'FOCUS' : 'REST'}
+                    </div>
+                    {isFocusMode && sessionIntention ? (
+                      <div className="focus-intention animate-pulse text-white/80 text-[10px] uppercase font-black tracking-widest mt-4">
+                        Current Task: {sessionIntention}
                       </div>
-                   </div>
-                   <div className="flex flex-col items-end">
-                      <span className="text-[10px] font-black uppercase tracking-widest">Efficiency</span>
-                      <span className="text-xs font-bold text-md-primary">x{(1 + (profile?.level || 1) * 0.1).toFixed(1)} MULTI</span>
-                   </div>
-                </div>
-              )}
-
-              {/* Mode Toggle - Modern Pill */}
-              {!isFocusMode && (
-                <div className="flex gap-1 p-1 bg-white/5 border border-white/10 rounded-2xl backdrop-blur-xl mb-8 relative z-10 scale-90 md:scale-100">
-                  <button 
-                    onClick={() => { setMode('study'); setTimeLeft((profile?.settings?.workDuration || 50) * 60); setIsRunning(false); setFocusScore(null); setDistractions(0); }}
-                    className={cn("px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-tight transition-all", mode === 'study' ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-white/40 hover:text-white/60")}
-                  >
-                    Deep Work
-                  </button>
-                  <button 
-                    onClick={() => { setMode('break'); setTimeLeft((profile?.settings?.breakDuration || 10) * 60); setIsRunning(false); setFocusScore(null); }}
-                    className={cn("px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-tight transition-all", mode === 'break' ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/20" : "text-white/40 hover:text-white/60")}
-                  >
-                    Rest
-                  </button>
-                </div>
-              )}
-
-              {/* Centered Timer Visual */}
-              <div id="timer-main" className="relative flex flex-col items-center justify-center">
-                {mode === 'break' && breakActivity && !isFocusMode && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="absolute -top-12 bg-emerald-500/10 border border-emerald-500/20 px-6 py-2 rounded-full whitespace-nowrap"
-                  >
-                     <span className="text-[10px] font-black uppercase text-emerald-400 tracking-widest">Protocol: {breakActivity}</span>
-                  </motion.div>
-                )}
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={mode}
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 1.1, opacity: 0 }}
-                    className="relative"
-                  >
-                    <svg className="w-72 h-72 md:w-96 md:h-96 drop-shadow-[0_0_30px_rgba(0,0,0,0.5)]">
-                      <circle cx="50%" cy="50%" r="45%" fill="none" stroke="currentColor" className="text-white/5" strokeWidth="12" />
-                      <motion.circle 
-                        cx="50%" cy="50%" r="45%" fill="none" stroke="currentColor" strokeWidth="12"
-                        strokeDasharray="100 100"
-                        strokeDashoffset={100 - (timeLeft / (mode === 'study' ? (profile?.settings?.workDuration || 50) * 60 : (profile?.settings?.breakDuration || 10) * 60) * 100)}
-                        strokeLinecap="round"
-                        className={cn("timer-progress transition-colors duration-500 focus-ring-glow", mode === 'study' ? "text-primary" : "text-emerald-500")}
-                        pathLength="100"
-                      />
-                      <text x="50%" y="54%" textAnchor="middle" className="text-7xl md:text-8xl font-black fill-white font-mono tracking-tighter filter drop-shadow-md">
-                        {formatTime(timeLeft)}
-                      </text>
-                      <text x="50%" y="65%" textAnchor="middle" className={cn("text-[10px] md:text-xs uppercase tracking-[0.4em] font-black opacity-60", mode === 'study' ? "fill-primary" : "fill-emerald-500")}>
-                        {mode === 'study' ? 'System Focus' : 'Recovery Active'}
-                      </text>
-                    </svg>
-                    
-                    {/* Focus Score Float */}
-                    {focusScore !== null && (
-                      <motion.div 
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-white/10 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/20 whitespace-nowrap"
-                      >
-                         <span className="text-[10px] font-black uppercase text-md-primary">Focus Score: {focusScore}%</span>
-                      </motion.div>
+                    ) : (
+                      <div id="t-session-label">Set {(sessionCount % 4) + 1} / 4</div>
                     )}
-                  </motion.div>
-                </AnimatePresence>
+                  </div>
+                </div>
 
-                {/* Cycle Indicators */}
+                <div id="cycle-dots">
+                  {[0, 1, 2, 3].map(i => (
+                    <div 
+                      key={i} 
+                      className={cn(
+                        "c-dot", 
+                        (sessionCount % 4) > i && "done",
+                        (sessionCount % 4) === i && isRunning && "active"
+                      )} 
+                    />
+                  ))}
+                </div>
+
+                {/* Session context - can stay or hide? User wants "only time and the task I am working on". I'll show intensity/session labels but maybe smaller/hidden if needed. Actually I'll hide goal area and atmosphere. */}
                 {!isFocusMode && (
-                  <div className="mt-6 flex gap-3 justify-center">
-                     {[0, 1, 2, 3].map(dot => (
-                       <div key={dot} className={cn(
-                         "w-2.5 h-2.5 rounded-full transition-all duration-500 border border-white/5",
-                         sessionCount > dot ? "bg-primary shadow-[0_0_15px_rgba(0,255,224,0.6)] scale-110" : "bg-white/10"
-                       )} />
-                     ))}
+                  <div id="session-ctx">
+                    <div className="ctx-item streak">🔥 <span>{streak}</span></div>
+                    <div className="ctx-sep">·</div>
+                    <div className="ctx-item multi">
+                      ⚡ ×<span>{(1 + (profile?.level || 1) * 0.1).toFixed(1)}</span>
+                    </div>
                   </div>
                 )}
               </div>
 
-              {/* Primary Controls */}
-              <div id="timer-controls-row" className="flex items-center gap-8 relative z-10">
-                <MagneticButton 
-                  onClick={resetTimer}
-                  className="p-5 rounded-3xl bg-white/5 border border-white/10 text-white/40 hover:text-white hover:bg-white/10 transition-all active:scale-90"
-                >
-                  <RotateCcw className="w-6 h-6" />
-                </MagneticButton>
-                <div className="relative group">
-                  <motion.div 
-                    animate={isRunning ? { scale: [1, 1.05, 1], opacity: [0, 0.2, 0] } : {}}
-                    transition={{ repeat: Infinity, duration: 2 }}
-                    className="absolute inset-0 bg-primary blur-2xl rounded-full"
-                  />
-                  <button 
-                    onClick={toggleTimer}
-                    className={cn(
-                      "w-24 h-24 rounded-full flex items-center justify-center transition-all duration-500 shadow-2xl relative z-10",
-                      isRunning ? "bg-zinc-900 text-white border-2 border-white/10" : "bg-white text-black scale-110 hover:scale-115 active:scale-95"
-                    )}
-                  >
-                    {isRunning ? <Pause className="w-10 h-10 fill-current" /> : <Play className="w-10 h-10 fill-current ml-2" />}
-                  </button>
+              {/* Goal Area */}
+              {!isFocusMode && (
+                <div id="goal-area">
+                  <div id="goal-header">
+                    <span id="goal-label">DAILY GOAL</span>
+                    <span id="goal-val">{totalFocusToday || 0} / 200m</span>
+                  </div>
+                  <div id="goal-bar">
+                    <motion.div 
+                      id="goal-fill" 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.min(100, ((totalFocusToday || 0) / 200) * 100)}%` }}
+                    />
+                  </div>
                 </div>
-                <MagneticButton 
-                  onClick={() => setIsFocusMode(!isFocusMode)}
-                  className={cn("p-5 rounded-3xl transition-all active:scale-90", isFocusMode ? "bg-white text-black" : "bg-white/5 border border-white/10 text-white/40 hover:text-white hover:bg-white/10")}
+              )}
+
+              {/* Controls */}
+              <div id="t-controls" className={cn("mt-8 flex items-center justify-center gap-8", isFocusMode && "mt-12")}>
+                {!isFocusMode && (
+                  <button id="reset-btn" className="ctrl-sm" onClick={resetTimer}>
+                    <RotateCcw className="w-5 h-5" />
+                  </button>
+                )}
+                <button 
+                  id="play-btn" 
+                  className={cn("ctrl-play", isFocusMode && "w-16 h-16 rounded-2xl")} 
+                  onClick={() => setIsRunning(!isRunning)}
                 >
-                  {isFocusMode ? <Minimize2 className="w-6 h-6" /> : <Maximize2 className="w-6 h-6" />}
-                </MagneticButton>
+                  {isRunning ? 
+                    <Pause className={cn(isFocusMode ? "w-6 h-6" : "w-8 h-8", "fill-current")} /> : 
+                    <Play className={cn(isFocusMode ? "w-6 h-6 ml-1" : "w-8 h-8 ml-1", "fill-current")} />
+                  }
+                </button>
+                <button 
+                  id="expand-btn" 
+                  className={cn("ctrl-sm", isFocusMode && "w-16 h-16 rounded-2xl")} 
+                  onClick={() => setIsFocusMode(!isFocusMode)}
+                >
+                  {isFocusMode ? <Minimize2 className={isFocusMode ? "w-6 h-6" : "w-5 h-5"} /> : <Maximize2 className="w-5 h-5" />}
+                </button>
               </div>
 
-              {/* Distraction Logger (FAB Replacement equivalent during session) */}
+              {/* Atmosphere trigger */}
+              {!isFocusMode && (
+                <div id="atmo-trigger" onClick={() => setIsAtmosphereSheetOpen(true)}>
+                  <Music className="w-4 h-4 text-white" />
+                  <span className="atmo-label">
+                    {activeAmbientTrack ? activeAmbientTrack.label : 'Atmosphere'}
+                  </span>
+                </div>
+              )}
+
+              {/* FAB removed from here, global FAB is sufficient */}
+
+              {/* Overlays */}
               <AnimatePresence>
-                {isRunning && mode === 'study' && !isFocusMode && (
-                   <motion.button 
-                     initial={{ scale: 0, opacity: 0 }}
-                     animate={{ scale: 1, opacity: 1 }}
-                     exit={{ scale: 0, opacity: 0 }}
-                     onClick={logDistraction}
-                     className="mb-8 flex items-center gap-3 px-6 py-3 bg-red-500/10 border border-red-500/30 rounded-full text-red-400 font-black text-[10px] uppercase tracking-widest hover:bg-red-500/20 active:scale-90 transition-all distraction-pulse"
-                   >
-                     <AlertCircle className="w-4 h-4" />
-                     Log Distraction ({distractions})
-                   </motion.button>
+                {showScoreCard && (
+                  <motion.div 
+                    id="score-float"
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    onClick={() => setShowScoreCard(false)}
+                  >
+                    <div 
+                      className="score-card"
+                      onClick={e => e.stopPropagation()}
+                    >
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="w-16 h-16 bg-amber-400/20 rounded-full flex items-center justify-center">
+                          <Trophy className="w-8 h-8 text-amber-400" />
+                        </div>
+                        <h3 className="font-display font-black text-2xl tracking-tighter uppercase text-white">SESSION COMPLETE</h3>
+                      </div>
+                      
+                      <span className="sc-score">{focusScore}</span>
+                      
+                      <button 
+                        id="s-confirm" 
+                        onClick={() => {
+                          setShowScoreCard(false);
+                          if (mode === 'study') {
+                            setMode('shortBreak');
+                            setTimeLeft((profile?.settings?.breakDuration || 5) * 60);
+                          } else {
+                            setMode('study');
+                            setTimeLeft((profile?.settings?.workDuration || 25) * 60);
+                          }
+                          setIsRunning(true);
+                        }}
+                      >
+                        REDEEM & CONTINUE
+                      </button>
+                    </div>
+                  </motion.div>
                 )}
               </AnimatePresence>
 
-              {/* Session Intention Input Modal/Overlay */}
+              {/* Intention Modal Integration */}
               <AnimatePresence>
                 {showIntentionInput && (
-                   <motion.div 
-                     initial={{ opacity: 0 }}
-                     animate={{ opacity: 1 }}
-                     exit={{ opacity: 0 }}
-                     className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
-                   >
+                   <>
                      <motion.div 
-                       initial={{ y: 100 }}
-                       animate={{ y: 0 }}
-                       className="w-full max-w-md glass p-8 rounded-[3rem] space-y-6 shadow-2xl border border-white/10"
+                       initial={{ opacity: 0 }}
+                       animate={{ opacity: 1 }}
+                       exit={{ opacity: 0 }}
+                       onClick={() => setShowIntentionInput(false)}
+                       className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm"
+                     />
+                     <motion.div 
+                       initial={{ y: "100%" }}
+                       animate={{ y: 0, transition: { type: "spring", stiffness: 300, damping: 30 } }}
+                       exit={{ y: "100%", transition: { duration: 0.3, ease: 'easeIn' } }}
+                       className="fixed bottom-0 left-0 right-0 md:left-1/2 md:-translate-x-1/2 max-w-lg w-full z-[101] bg-md-surface-2 md:rounded-t-[2.5rem] rounded-t-[2rem] border-t border-x border-white/10 shadow-[0_-20px_60px_rgba(0,0,0,0.5)] flex flex-col max-h-[80vh]"
                      >
-                        <div className="space-y-2">
-                           <h3 className="text-xl font-black uppercase italic tracking-tighter">Set Your Intention</h3>
-                           <p className="text-xs text-white/40 font-bold">What will you accomplish in this 50-minute block?</p>
+                        <div className="w-full flex justify-center pt-4 pb-2 shrink-0">
+                           <div className="w-12 h-1.5 bg-white/20 rounded-full" />
                         </div>
-                        <input 
-                          autoFocus
-                          type="text" 
-                          placeholder="e.g. Solving 10 PHY problems"
-                          value={sessionIntention}
-                          onChange={(e) => setSessionIntention(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && sessionIntention.length > 2 && (setShowIntentionInput(false), setIsRunning(true), setSessionStartTime(Date.now()))}
-                          className="w-full bg-white/5 border border-white/10 p-5 rounded-3xl text-sm font-bold focus:border-primary focus:outline-none transition-colors"
-                        />
-                        <button 
-                          disabled={sessionIntention.length < 3}
-                          onClick={() => { setShowIntentionInput(false); setIsRunning(true); setSessionStartTime(Date.now()); }}
-                          className="w-full py-5 bg-primary text-md-on-primary font-black uppercase text-xs tracking-[0.2em] rounded-3xl disabled:opacity-30 transition-all active:scale-95 shadow-[0_0_20px_rgba(0,255,224,0.3)]"
-                        >
-                          Initialize Protocol
-                        </button>
-                     </motion.div>
-                   </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Atmosphere Control Center */}
-              {!isFocusMode && (
-                <div className="w-full space-y-12 mt-12 flex-1 page-content">
-                  <div className="bg-zinc-900/50 border border-white/10 p-8 rounded-[3rem] backdrop-blur-3xl shadow-2xl space-y-10">
-                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                      <div className="flex flex-col italic">
-                        <h4 className="text-xl font-black text-white">Atmosphere</h4>
-                        <p className="text-[10px] text-white/40 font-black uppercase tracking-widest">Enhanced Soundscapes</p>
-                      </div>
-                      <div className="flex gap-2 bg-white/5 p-1 rounded-2xl border border-white/10">
-                        {AMBIENT_CATEGORIES.map(cat => {
-                          const IconComp = (cat.id === 'nature' ? CloudRain : cat.id === 'focus' ? Brain : Music);
-                          return (
-                            <button
-                              key={cat.id}
-                              onClick={() => setActiveAmbientCategory(cat.id)}
-                              className={cn(
-                                "flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                                activeAmbientCategory === cat.id ? "bg-primary text-white" : "text-white/40 hover:text-white/60"
-                              )}
-                            >
-                              <IconComp className="w-3 h-3" />
-                              {cat.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-                      {AMBIENT_DATA.filter(t => t.category === activeAmbientCategory).map(track => {
-                        const isSelected = ambientSound === track.id;
-                        const IconComponent = (
-                          track.icon === 'CloudRain' ? CloudRain :
-                          track.icon === 'Activity' ? Activity :
-                          track.icon === 'Droplets' ? Droplets :
-                          track.icon === 'Coffee' ? Coffee :
-                          track.icon === 'Music' ? Music :
-                          track.icon === 'Hash' ? Hash :
-                          track.icon === 'Wind' ? Wind :
-                          track.icon === 'Zap' ? Zap : Music
-                        );
-                        return (
-                          <button
-                            key={track.id}
-                            onClick={() => setAmbientSound(isSelected ? 'none' : track.id)}
-                            className={cn(
-                              "group relative flex flex-col items-center justify-center gap-3 p-6 rounded-[2.5rem] border transition-all duration-500",
-                              isSelected ? "bg-primary shadow-[0_0_20px_rgba(0,255,224,0.3)] border-primary" : "bg-white/5 border-white/10 opacity-40 hover:opacity-100 hover:scale-105"
-                            )}
-                          >
-                            <div className={cn("p-4 rounded-2xl transition-all duration-500", isSelected ? "bg-md-on-primary-cont text-md-primary scale-110" : "bg-white/10 text-white group-hover:bg-white/20")}>
-                              <IconComponent className="w-6 h-6" />
-                              {isSelected && (
-                                <motion.div 
-                                  layoutId="active-dot" 
-                                  className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full animate-pulse"
-                                />
-                              )}
+                        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                            <div className="space-y-2">
+                               <h3 className="text-xl font-bold font-display text-white">Set Your Intention</h3>
+                               <p className="text-xs text-white/60 font-medium">What will you accomplish in this block?</p>
                             </div>
-                            <span className={cn("text-[10px] font-black uppercase tracking-tighter transition-colors", isSelected ? "text-primary" : "text-white/60")}>{track.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row items-center gap-6 pt-6 border-t border-white/5">
-                      <div className="flex items-center gap-4 min-w-[140px]">
-                        <div className="p-3 rounded-2xl bg-white/5 text-white/40">
-                           {ambientVolume === 0 ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+                            <input 
+                              autoFocus
+                              type="text" 
+                              placeholder="e.g. Solving 10 PHY problems"
+                              value={sessionIntention}
+                              onChange={(e) => setSessionIntention(e.target.value)}
+                              onKeyDown={(e) => e.key === 'Enter' && sessionIntention.length > 2 && (setShowIntentionInput(false), setIsRunning(true), setSessionStartTime(Date.now()))}
+                              className="w-full bg-md-surface-3 border border-white/5 px-6 py-5 rounded-3xl text-sm font-medium focus:border-md-primary text-white focus:outline-none transition-colors"
+                            />
                         </div>
-                        <div className="flex flex-col">
-                          <span className="text-[10px] font-black opacity-40 uppercase">Volume</span>
-                          <span className="text-sm font-bold tabular-nums">{Math.round(ambientVolume * 100)}%</span>
+                        <div className="p-4 border-t border-white/5 bg-md-surface-2 shrink-0 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+                            <button 
+                              disabled={sessionIntention.length < 3}
+                              onClick={() => { setShowIntentionInput(false); setIsRunning(true); setSessionStartTime(Date.now()); }}
+                              className="w-full py-4 bg-md-primary rounded-full text-md-on-primary font-bold hover:bg-md-primary/90 active:scale-95 disabled:opacity-30 transition-all shadow-lg shadow-md-primary/20"
+                            >
+                              Initialize Protocol
+                            </button>
                         </div>
-                      </div>
-                      <div className="flex-1 w-full relative">
-                         <input 
-                            type="range" min="0" max="1" step="0.01" value={ambientVolume}
-                            onChange={(e) => setAmbientVolume(parseFloat(e.target.value))}
-                            className="w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary focus:outline-none"
-                          />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Dynamic Island / Current Task HUD */}
-              <AnimatePresence>
-                {selectedTaskId && (
-                  <motion.div 
-                    layoutId="dynamic-island"
-                    initial={{ y: -50, scale: 0.8, opacity: 0 }}
-                    animate={{ y: 0, scale: 1, opacity: 1 }}
-                    exit={{ y: -50, scale: 0.8, opacity: 0 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                    className="fixed top-8 left-1/2 -translate-x-1/2 bg-md-surface-2 px-6 py-3 rounded-full flex items-center justify-center gap-4 shadow-[0_16px_32px_rgba(0,0,0,0.5)] border border-white/10 whitespace-nowrap z-[100] backdrop-blur-3xl 
-                               md:top-8 md:-translate-x-1/2 md:left-1/2 overflow-hidden mx-auto max-w-[90vw]"
-                  >
-                    <div className="absolute inset-0 bg-md-primary/5 opacity-50" />
-                    <div className="w-2.5 h-2.5 rounded-full bg-md-primary animate-pulse shadow-[0_0_8px_var(--md-primary)] shrink-0" />
-                    <div className="flex flex-col relative z-10 truncate">
-                       <span className="text-[9px] font-mono opacity-50 uppercase tracking-[0.3em] font-bold">Active Directive</span>
-                       <span className="font-bold text-sm text-white uppercase tracking-wider truncate max-w-[200px] md:max-w-[300px]">{tasks.find(t => t.id === selectedTaskId)?.title}</span>
-                    </div>
-                  </motion.div>
+                     </motion.div>
+                   </>
                 )}
               </AnimatePresence>
             </motion.div>
@@ -1570,38 +1724,136 @@ export default function App() {
                 <h3 className="text-2xl font-bold">Quantum Tasks</h3>
                 <button 
                   onClick={() => openAddTaskModal('study')}
-                  className="p-3 bg-primary rounded-2xl text-white shadow-lg shadow-blue-500/20 active:scale-95 transition-transform"
+                  className="p-3 bg-md-primary rounded-full text-md-on-primary shadow-lg shadow-md-primary/20 active:scale-95 transition-transform"
                 >
                   <Plus className="w-6 h-6" />
                 </button>
               </div>
 
-              <div className="flex gap-2 p-1 bg-surface-variant rounded-2xl w-fit">
-                {['Pending', 'Completed'].map(f => (
-                  <button key={f} className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                    {f}
-                  </button>
-                ))}
+              {/* Subject Filter Bar */}
+              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-6 px-6">
+                <button
+                   onClick={() => setSelectedSubjectFilter('All')}
+                   className={cn("shrink-0 px-4 py-2 rounded-full text-sm font-medium border transition-all", selectedSubjectFilter === 'All' ? "bg-white/20 border-white/30 text-white shadow-sm" : "bg-transparent border-white/10 text-white/60 hover:bg-white/5")}
+                >
+                  All
+                </button>
+                {allSubjects.map(sub => {
+                   const isActive = selectedSubjectFilter === sub.id;
+                   const count = tasks.filter(t => t.subjects?.includes(sub.id) && !t.completed).length;
+                   return (
+                     <button
+                       key={sub.id}
+                       onClick={() => setSelectedSubjectFilter(sub.id)}
+                       style={{
+                          backgroundColor: isActive ? `${sub.color}33` : 'transparent',
+                          borderColor: isActive ? sub.color : 'rgba(255,255,255,0.1)',
+                          color: isActive ? sub.color : 'rgba(255,255,255,0.6)'
+                       }}
+                       className="shrink-0 px-4 py-2 rounded-full text-sm font-medium border transition-all flex items-center gap-2 hover:bg-[rgba(255,255,255,0.05)]"
+                     >
+                       {isActive && <CheckCircle className="w-3.5 h-3.5" style={{ color: sub.color }} />}
+                       {sub.name}
+                       <span className="text-[10px] bg-black/20 px-1.5 py-0.5 rounded-full">{count}</span>
+                     </button>
+                   );
+                })}
+              </div>
+
+              {/* Subject Progress Bars */}
+              <div className="flex flex-col gap-3 py-2">
+                 <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest px-1">Today's Subject Progress</p>
+                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {allSubjects.map(sub => {
+                        const todayTasks = tasks.filter(t => t.subjects?.includes(sub.id));
+                        const total = todayTasks.length;
+                        if (total === 0) return null;
+                        const completed = todayTasks.filter(t => t.completed).length;
+                        const progress = total > 0 ? (completed / total) * 100 : 0;
+                        return (
+                            <div key={sub.id} className="glass-card border border-white/5 p-3 rounded-2xl space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-bold" style={{ color: sub.color }}>{sub.name}</span>
+                                    <span className="text-[10px] text-white/60 font-mono">{completed}/{total}</span>
+                                </div>
+                                <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                                     <motion.div 
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${progress}%` }}
+                                        className="h-full rounded-full transition-all duration-1000"
+                                        style={{ backgroundColor: sub.color, boxShadow: `0 0 10px ${sub.color}80` }}
+                                     />
+                                </div>
+                            </div>
+                        );
+                    })}
+                 </div>
+              </div>
+
+              <div className="flex gap-2 p-1 bg-white/5 rounded-full w-fit border border-white/5">
+                {['Pending', 'Completed'].map(f => {
+                   const viewKey = f === 'Pending' ? 'active' : 'completed';
+                   return (
+                     <button 
+                       key={f} 
+                       onClick={() => setTaskView(viewKey)}
+                       className={cn(
+                         "px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all",
+                         taskView === viewKey ? "bg-md-primary text-md-on-primary shadow-lg shadow-md-primary/20" : "text-white/40 hover:text-white"
+                       )}
+                     >
+                       {f}
+                     </button>
+                   );
+                })}
               </div>
 
               <div className="space-y-3">
                  {/* Reusing task card logic but in a dedicated view */}
-                 {tasks.map(task => (
-                    <div key={task.id} className="glass-card flex items-center justify-between">
-                       <div className="flex items-center gap-4">
-                          <CheckCircle 
-                            onClick={() => toggleTask(task)}
-                            className={cn("w-6 h-6 cursor-pointer transition-colors", task.completed ? "text-green-500 fill-green-500/20" : "text-on-surface-variant/40")} 
-                          />
-                          <div>
-                             <p className={cn("font-bold text-sm", task.completed && "line-through opacity-50")}>{task.title}</p>
-                             <p className="text-[10px] text-on-surface-variant/60 font-bold uppercase tracking-widest">{task.category}</p>
-                          </div>
-                       </div>
-                       <button onClick={() => deleteTask(task.id)}><Trash2 className="w-4 h-4 text-red-400 opacity-0 group-hover:opacity-100 transition-opacity" /></button>
-                    </div>
-                 ))}
+                 {tasks
+                    .filter(t => taskView === 'active' ? !t.completed : t.completed)
+                    .filter(t => selectedSubjectFilter === 'All' || (t.subjects && t.subjects.includes(selectedSubjectFilter)))
+                    .map(task => {
+                       const subject = task.subjects?.[0] ? allSubjects.find(s => s.id === task.subjects![0]) : null;
+                       return (
+                         <div key={task.id} className="glass-card border border-white/10 rounded-[2rem] p-4 flex items-center justify-between relative overflow-hidden group">
+                            {subject && (
+                              <div className="absolute left-0 top-0 bottom-0 w-1.5" style={{ backgroundColor: subject.color }} />
+                            )}
+                            <div className="flex items-center gap-4 pl-3">
+                               <CheckCircle 
+                                 onClick={() => toggleTask(task)}
+                                 className={cn("w-6 h-6 cursor-pointer transition-colors", task.completed ? "text-green-500 fill-green-500/20" : "text-white/20 hover:text-white/40")} 
+                               />
+                               <div>
+                                  <p className={cn("font-bold text-sm text-white", task.completed && "line-through opacity-50")}>{task.title}</p>
+                                  <div className="flex gap-2 items-center mt-1">
+                                    <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest">{task.category}</p>
+                                    {task.urgent && <span className="text-[9px] px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 font-bold uppercase tracking-widest">Urgent</span>}
+                                    {subject && <span className="text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-widest" style={{ backgroundColor: `${subject.color}20`, color: subject.color }}>{subject.name}</span>}
+                                  </div>
+                               </div>
+                            </div>
+                            <button onClick={() => deleteTask(task.id)} className="p-3 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/5 rounded-full"><Trash2 className="w-5 h-5 text-red-400/70" /></button>
+                         </div>
+                       );
+                    })}
               </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'habits' && (
+            <motion.div 
+               key="habits"
+               initial={{ opacity: 0, y: 20 }}
+               animate={{ opacity: 1, y: 0 }}
+               className="space-y-6"
+            >
+              <div className="flex justify-between items-center px-4">
+                  <h3 className="text-xl font-black">Habit Roster</h3>
+                  <button onClick={() => setIsAddHabitModalOpen(true)} className="text-[10px] font-black text-primary uppercase tracking-widest">+ Initialize</button>
+              </div>
+              <HabitsGrid habits={habits} onMark={toggleHabit} onDelete={deleteHabit} />
             </motion.div>
           )}
 
@@ -1612,46 +1864,7 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               className="space-y-6"
             >
-              <h3 className="text-2xl font-bold">Progress</h3>
-              
-               <div className="grid grid-cols-2 gap-4">
-                <div className="material-card space-y-1">
-                  <p className="text-[10px] font-bold text-on-surface-variant/40 uppercase tracking-widest">{t('best_streak')}</p>
-                  <p className="text-3xl font-bold">{habits.reduce((max, h) => Math.max(max, h.streakBest || 0), 0)}</p>
-                </div>
-                <div className="material-card space-y-1">
-                  <p className="text-[10px] font-bold text-on-surface-variant/40 uppercase tracking-widest">{t('streak')}</p>
-                  <p className="text-3xl font-bold">{habits.reduce((max, h) => Math.max(max, h.streak || 0), 0)}</p>
-                </div>
-              </div>
-
-              {habits.length > 0 && (
-                <div className="space-y-4">
-                  <h4 className="text-sm font-black uppercase tracking-widest opacity-40 px-2">Global Heatmap</h4>
-                  <div className="glass p-6 rounded-[2.5rem]">
-                    <HabitHeatMap completedDates={Array.from(new Set(habits.flatMap(h => h.completedDates || [])))} />
-                  </div>
-                </div>
-              )}
-
-              <div className="material-card h-64 w-full">
-                <p className="text-[10px] font-bold text-on-surface-variant/40 uppercase tracking-widest mb-4">Activity (Weekly)</p>
-                <ResponsiveContainer width="100%" height="90%">
-                  <BarChart data={[
-                    { day: 'M', sessions: 4 },
-                    { day: 'T', sessions: 6 },
-                    { day: 'W', sessions: 3 },
-                    { day: 'T', sessions: 8 },
-                    { day: 'F', sessions: 5 },
-                    { day: 'S', sessions: 2 },
-                    { day: 'S', sessions: 4 },
-                  ]}>
-                    <XAxis dataKey="day" axisLine={false} tickLine={false} />
-                    <Tooltip cursor={{ fill: 'rgba(0,0,0,0.05)' }} contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                    <Bar dataKey="sessions" fill="var(--primary)" radius={[4, 4, 4, 4]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+              <AnalyticsView sessionLogs={sessionLogs} allSubjects={allSubjects} />
 
               {/* Skill Tree */}
               <div className="space-y-4">
@@ -1947,6 +2160,13 @@ export default function App() {
                   </div>
                 </div>
               </div>
+              
+              <div className="mt-8 pt-8 border-t border-white/5">
+                <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-4 px-2">Developer Tools</h4>
+                <div className="-mx-6">
+                    <DeveloperSection />
+                </div>
+              </div>
             </motion.div>
           )}
 
@@ -1963,10 +2183,58 @@ export default function App() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        <AtmosphereSheet 
+           isOpen={isAtmosphereSheetOpen}
+           onClose={() => setIsAtmosphereSheetOpen(false)}
+           tracks={AMBIENT_DATA}
+           activeTrack={activeAmbientTrack}
+           onTrackSelect={(track) => {
+              if (activeAmbientTrack?.id === track.id) {
+                  stopAmbientSound(track.id);
+                  setActiveAmbientTrack(null);
+              } else {
+                  if (activeAmbientTrack) stopAmbientSound(activeAmbientTrack.id);
+                  playAmbientSound(track.url || track.id, track.id);
+                  setActiveAmbientTrack(track);
+              }
+           }}
+        />
+
+        {/* Atmosphere Control Center (Persistent) */}
+        <AnimatePresence>
+          {activeAmbientTrack && !isFocusMode && (
+           <motion.div 
+             id="music-mini-player" 
+             initial={{ opacity: 0, y: 20 }}
+             animate={{ opacity: 1, y: 0 }}
+             exit={{ opacity: 0, y: 20 }}
+             onClick={() => setIsAtmosphereSheetOpen(true)}
+             className="fixed bottom-[calc(104px+env(safe-area-inset-bottom))] md:bottom-8 md:w-80 md:right-auto md:left-[300px] left-6 right-6 h-14 bg-md-surface-2/90 backdrop-blur-xl rounded-full border border-white/10 flex items-center px-4 gap-4 z-[55] shadow-[0_16px_32px_rgba(0,0,0,0.4)] cursor-pointer"
+           >
+             <div className="w-8 h-8 rounded-full bg-md-primary flex items-center justify-center shrink-0">
+                 <Music className="w-4 h-4 text-md-on-primary" />
+             </div>
+             <div className="flex-1 font-bold text-sm text-white truncate">
+                 {activeAmbientTrack.label}
+             </div>
+             <button 
+               onClick={(e) => {
+                   e.stopPropagation();
+                   stopAmbientSound(activeAmbientTrack.id);
+                   setActiveAmbientTrack(null);
+               }}
+               className="p-2 rounded-full hover:bg-white/10 hover:text-md-primary transition-colors"
+             >
+                 <Pause className="w-4 h-4 fill-current" />
+             </button>
+           </motion.div>
+          )}
+        </AnimatePresence>
       </main>
 
       {/* Adaptive FAB */}
-      {!isFocusMode && (
+      {!isFocusMode && !isCoachOpen && !isAddTaskModalOpen && !isAddHabitModalOpen && (
         <button 
           onClick={() => openAddTaskModal()}
           onMouseEnter={playTick}
@@ -1978,7 +2246,7 @@ export default function App() {
       )}
 
       {/* Bottom Navigation / M3 Rail */}
-      {!isFocusMode && (
+      {!isFocusMode && !isCoachOpen && !isAddTaskModalOpen && !isAddHabitModalOpen && (
         <>
           {/* Desktop Nav Rail */}
           <nav className="hidden md:flex fixed left-0 top-0 bottom-0 h-screen w-64 border-r border-white/5 bg-md-surface/80 backdrop-blur-2xl z-40
@@ -1994,6 +2262,7 @@ export default function App() {
             </div>
 
             <NavButton active={activeTab === 'home'} icon={Home} label={t('home')} onClick={() => setActiveTab('home')} />
+            <NavButton active={activeTab === 'habits'} icon={Heart} label={t('habits')} onClick={() => setActiveTab('habits')} />
             <NavButton active={activeTab === 'tasks'} icon={BarChart2} label={t('tasks')} onClick={() => setActiveTab('tasks')} />
             <NavButton active={activeTab === 'timer'} icon={Timer} label={t('timer')} onClick={() => setActiveTab('timer')} />
             {!profile?.settings?.isDopamineDetox && (
@@ -2005,7 +2274,6 @@ export default function App() {
                   label="Trophies" 
                   onClick={() => setShowAchievements(true)} 
                 />
-                <NavButton active={activeTab === 'developer'} icon={Sparkles} label="Developer" onClick={() => setActiveTab('developer')} />
               </>
             )}
             <NavButton active={activeTab === 'profile'} icon={UserIcon} label={t('settings')} onClick={() => setActiveTab('profile')} />
@@ -2014,27 +2282,22 @@ export default function App() {
           </nav>
 
           {/* Mobile Bottom Tab */}
-          <nav id="mobile-nav">
+          <nav id="mobile-nav" className={cn(
+            "fixed bottom-0 left-0 right-0 h-16 bg-md-surface-2/80 backdrop-blur-3xl border-t border-white/5 flex items-center justify-around z-30 transition-all",
+            (isAddTaskModalOpen || isAddHabitModalOpen) ? "translate-y-full" : "translate-y-0"
+          )}>
             <NavButton active={activeTab === 'home'} icon={Home} label={t('home')} onClick={() => setActiveTab('home')} />
             <NavButton active={activeTab === 'tasks'} icon={BarChart2} label={t('tasks')} onClick={() => setActiveTab('tasks')} />
+            <NavButton active={activeTab === 'habits'} icon={Heart} label={t('habits')} onClick={() => setActiveTab('habits')} />
             <NavButton active={activeTab === 'timer'} icon={Timer} label={t('timer')} onClick={() => setActiveTab('timer')} />
             {!profile?.settings?.isDopamineDetox && (
               <NavButton active={activeTab === 'stats'} icon={Activity} label={t('analytics')} onClick={() => setActiveTab('stats')} />
             )}
-            <NavButton active={activeTab === 'developer'} icon={Sparkles} label="Dev" onClick={() => setActiveTab('developer')} />
           </nav>
         </>
       )}
 
-      {/* Focus Mode floating Close */}
-      {isFocusMode && (
-        <button 
-          onClick={() => setIsFocusMode(false)}
-          className="fixed top-8 right-8 p-3 bg-gray-100 rounded-full z-[60] active:scale-90 transition-transform"
-        >
-          <Minimize2 className="w-6 h-6" />
-        </button>
-      )}
+      {/* Focus Mode floating Close removed as redundant */}
       
       {/* Streak Achieved Animation */}
       <AnimatePresence>
@@ -2061,9 +2324,9 @@ export default function App() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[60] glass-card rounded-none flex flex-col bg-background/90"
+            className="fixed top-0 left-0 right-0 w-full h-[100dvh] z-[70] glass-card rounded-none flex flex-col bg-background/95 border-none shadow-none"
           >
-            <header className="p-6 flex items-center justify-between border-b border-outline/20">
+            <header className="p-6 flex items-center justify-between border-b border-outline/20 pt-[calc(1.5rem+env(safe-area-inset-top))]">
               <div className="flex items-center gap-3">
                  <div className="p-2 bg-blue-500/20 rounded-xl">
                     <Sparkles className="w-5 h-5 text-blue-400" />
@@ -2191,7 +2454,7 @@ export default function App() {
               )}
             </div>
 
-            <div className="p-6 border-t border-outline/20 bg-background/50">
+            <div className="p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] border-t border-white/10 bg-md-surface-2 shrink-0">
               <ChatInput onSend={sendToCoach} />
             </div>
           </motion.div>
@@ -2205,6 +2468,7 @@ export default function App() {
         onClose={() => setIsAddTaskModalOpen(false)}
         onAdd={addTask}
         defaultCategory={addTaskCategory}
+        subjects={allSubjects}
       />
       <AddHabitModal
         isOpen={isAddHabitModalOpen}

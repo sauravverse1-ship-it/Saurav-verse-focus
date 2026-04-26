@@ -12,7 +12,7 @@ interface HeatMapProps {
 
 export const HabitHeatMap = ({ completedDates = [] }: HeatMapProps) => {
   const today = new Date();
-  const startDate = subMonths(today, 2); // Show 2 months
+  const startDate = startOfWeek(subMonths(today, 2)); // Align to week start for row consistency
   const days = eachDayOfInterval({ start: startDate, end: today });
   
   return (
@@ -32,9 +32,9 @@ export const HabitHeatMap = ({ completedDates = [] }: HeatMapProps) => {
             <div
               key={dateStr}
               className={cn(
-                "w-3 h-3 rounded-sm transition-colors",
-                isDone ? "bg-md-primary shadow-[0_0_8px_var(--md-primary)]" : "bg-white/5",
-                isToday && !isDone && "border border-md-primary/40"
+                "w-2.5 h-2.5 rounded-full transition-all duration-300",
+                isDone ? "bg-md-primary shadow-[0_0_10px_var(--md-primary)] scale-110" : "bg-white/20 hover:bg-white/30",
+                isToday && !isDone && "border border-md-primary/40 animate-pulse"
               )}
               title={format(day, 'MMM d, yyyy')}
             />

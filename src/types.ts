@@ -1,5 +1,23 @@
 import { User } from 'firebase/auth';
 
+export interface AmbientTrack {
+  id: string;
+  label: string;
+  category: 'nature' | 'focus' | 'atmosphere' | 'lofi';
+  icon: string;
+  url?: string;
+}
+
+export interface SessionLog {
+  id: string;
+  duration: number; // seconds
+  timestamp: number;
+  type: 'focus' | 'break';
+  missionTitle?: string;
+  subject?: string | null;
+  completed: boolean;
+}
+
 export interface UserProfile {
   uid: string;
   displayName: string;
@@ -23,7 +41,7 @@ export interface UserProfile {
   }[];
   streakShields: number;
   lastActiveDate: string;
-  totalFocusTime: number;
+  totalFocusSeconds: number;
   pomodorosCompleted: number;
   health: {
     water: number;
@@ -61,6 +79,12 @@ export interface Achievement {
   category: 'focus' | 'streak' | 'habit' | 'special';
 }
 
+export interface Subject {
+  id: string;
+  name: string;
+  color: string;
+}
+
 export interface Task {
   id: string;
   userId: string;
@@ -71,6 +95,7 @@ export interface Task {
   sessions: number;
   expectedSessions: number;
   category: 'study' | 'personal' | 'health';
+  subjects?: string[];
   priority: 'high' | 'medium' | 'low';
   tags?: string[];
   deadline?: string;
