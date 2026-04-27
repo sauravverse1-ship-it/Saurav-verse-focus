@@ -53,7 +53,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onA
             onDragEnd={(info: any) => {
               if (info.offset.y > 100) onClose();
             }}
-            className="fixed bottom-4 left-4 right-4 md:left-1/2 md:-translate-x-1/2 max-w-lg w-full z-[101] bg-black/40 backdrop-blur-3xl md:rounded-[2.5rem] rounded-[2rem] border border-white/10 shadow-[0_32px_120px_rgba(0,0,0,0.8)] overflow-hidden"
+            className="fixed bottom-0 left-0 right-0 md:top-auto md:bottom-4 md:left-1/2 md:-translate-x-1/2 md:max-w-lg md:w-full z-[1000] bg-black/40 backdrop-blur-3xl md:rounded-[2.5rem] rounded-t-[2rem] md:border border-white/10 shadow-[0_32px_120px_rgba(0,0,0,0.8)] overflow-hidden"
           >
             <div className="flex flex-col max-h-[85vh]">
             <div className="w-full flex justify-center pt-5 pb-2 shrink-0">

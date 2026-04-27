@@ -5,6 +5,8 @@ import { db, auth, googleProvider, handleFirestoreError, OperationType } from '.
 import { signInWithPopup, onAuthStateChanged, User, signOut, signInAnonymously } from 'firebase/auth';
 import { doc, setDoc, getDoc, collection, query, where, onSnapshot, addDoc, updateDoc, increment, orderBy, limit, deleteDoc } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
+import { WeeklyPlanner } from './components/WeeklyPlanner';
+import { Timetable } from './components/Timetable';
 import { 
   Play, Pause, RotateCcw, CheckCircle, Home, Timer, BarChart2, User as UserIcon, 
   Plus, Settings, Volume2, VolumeX, Maximize2, Minimize2, Award, Zap, 
@@ -30,7 +32,6 @@ import { HabitHeatMap, HabitStreakInfo } from './components/HabitStats';
 import { AddTaskModal } from './components/AddTaskModal';
 import { AddHabitModal } from './components/AddHabitModal';
 import { AdaptiveWidgetGrid } from './components/AdaptiveWidgets';
-import { WeeklyPlanner } from './components/WeeklyPlanner';
 import { RankUpCeremony, AchievementUnlock, XPLabel, ComboDisplay, ConfettiCanvas, launchConfetti, LegendText, TickingNumber } from './components/GamificationOverlay';
 import { useGamification } from './lib/useGamification';
 import { getRank, getXPProgress, getDailyChallenges, ACHIEVEMENTS } from './lib/gamification';
@@ -1903,7 +1904,7 @@ export default function App() {
               key="tasks"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
-              className="space-y-6 pb-20"
+              className="space-y-6 max-w-full overflow-x-hidden pb-[calc(10vh+80px)]"
             >
               <div className="flex items-center justify-between px-2">
                 <h3 className="text-2xl font-bold">Quantum Tasks</h3>
@@ -1929,10 +1930,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Task Heatmap */}
-              <div className="glass-card p-4 md:p-6 border border-white/5 rounded-[2.5rem] space-y-6 md:space-y-8">
-                <HabitHeatMap completedDates={tasks.filter(t => t.completed && t.completedAt).map(t => format(new Date(t.completedAt!), 'yyyy-MM-dd'))} />
-              </div>
 
               {/* Subject Filter Bar */}
               <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-6 px-6">
@@ -1992,8 +1989,8 @@ export default function App() {
                         );
                     })}
                  </div>
-              </div>
-
+               </div>
+       
               <div className="flex gap-2 p-1 bg-white/5 rounded-full w-fit border border-white/5">
                 {['Pending', 'Completed'].map(f => {
                    const viewKey = f === 'Pending' ? 'active' : 'completed';
@@ -2045,10 +2042,6 @@ export default function App() {
                     })}
               </div>
 
-              {/* Weekly Planner */}
-              <div className="glass-card p-4 md:p-6 border border-white/5 rounded-[2.5rem]">
-                 <WeeklyPlanner tasks={tasks} />
-              </div>
             </motion.div>
           )}
 
@@ -2063,6 +2056,7 @@ export default function App() {
                   <h3 className="text-xl font-black">Habit Roster</h3>
                   <button onClick={() => setIsAddHabitModalOpen(true)} className="text-[10px] font-black text-primary uppercase tracking-widest">+ Initialize</button>
               </div>
+
               <HabitsGrid habits={habits} onMark={toggleHabit} onDelete={deleteHabit} />
 
               <div className="bg-white/5 border border-white/5 rounded-[2.5rem] p-6 space-y-4">
@@ -2444,8 +2438,8 @@ export default function App() {
               </div>
             </motion.div>
           )}
-
         </AnimatePresence>
+      </main>
 
         <AtmosphereSheet 
            isOpen={isAtmosphereSheetOpen}
@@ -2494,7 +2488,6 @@ export default function App() {
            </motion.div>
           )}
         </AnimatePresence>
-      </main>
 
       {/* Adaptive FAB */}
       {!isFocusMode && !isCoachOpen && !isAddTaskModalOpen && !isAddHabitModalOpen && (
