@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { UserProfile, Achievement } from '../types';
 import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '../App';
+import { db, handleFirestoreError, OperationType } from './firebase';
 import { RANKS, ACHIEVEMENTS, getRank } from './gamification';
 
 export function useGamification(profile: UserProfile | null, setProfile: (p: UserProfile | ((prev: UserProfile) => UserProfile)) => void) {
@@ -173,7 +173,7 @@ export function useGamification(profile: UserProfile | null, setProfile: (p: Use
         return { ...prev, ...updates };
       });
     } catch (e) {
-      console.error("Failed to update gamification state:", e);
+      handleFirestoreError(e, OperationType.UPDATE, `users/${currentProfile.uid}`);
     }
   }, [combo.multiplier, setProfile]);
 

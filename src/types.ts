@@ -58,6 +58,8 @@ export interface UserProfile {
     weakChapters: string[];
     strongChapters: string[];
   };
+  examPreference?: 'JEE' | 'NEET' | 'None';
+  examDate?: string;
   settings: {
     workDuration: number;
     breakDuration: number;
@@ -95,6 +97,7 @@ export interface Task {
   sessions: number;
   expectedSessions: number;
   category: 'study' | 'personal' | 'health';
+  isRevision?: boolean;
   subjects?: string[];
   priority: 'high' | 'medium' | 'low';
   tags?: string[];

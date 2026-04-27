@@ -15,17 +15,20 @@ type Exam = {
 };
 
 const INITIAL_EXAMS: Exam[] = [
-    { id: 'jm1', name: 'JEE Mains', session: 'Session 1', date: new Date('2027-01-15'), color: 'teal', subjects: ['Physics', 'Chem', 'Math'] },
-    { id: 'jm2', name: 'JEE Mains', session: 'Session 2', date: new Date('2027-04-10'), color: 'blue', subjects: ['Physics', 'Chem', 'Math'] },
-    { id: 'ja', name: 'JEE Advanced', session: 'Final', date: new Date('2027-05-25'), color: 'amber', subjects: ['Physics', 'Chem', 'Math'], tagline: 'Every Pomodoro brings you closer' },
+    { id: 'jm1', name: 'JEE', session: 'Mains Session 1', date: new Date('2027-01-24'), color: 'blue', subjects: ['Physics', 'Chem', 'Math'] },
+    { id: 'jm2', name: 'JEE', session: 'Mains Session 2', date: new Date('2027-04-10'), color: 'cyan', subjects: ['Physics', 'Chem', 'Math'] },
+    { id: 'ja', name: 'JEE', session: 'Advanced', date: new Date('2027-05-25'), color: 'amber', subjects: ['Physics', 'Chem', 'Math'], tagline: 'The final frontier' },
+    { id: 'neet', name: 'NEET', session: '2027', date: new Date('2027-05-03'), color: 'emerald', subjects: ['Biology', 'Physics', 'Chem'], tagline: 'Future Doctor Mission' },
 ];
 
-export const ExamCard: React.FC<{ onNavigateToTasks: () => void }> = ({ onNavigateToTasks }) => {
-    const [exams, setExams] = useState<Exam[]>(INITIAL_EXAMS);
-    const [expandedId, setExpandedId] = useState<string | null>(null);
+export const ExamCard: React.FC<{ preference: 'JEE' | 'NEET' | 'None', onNavigateToTasks: () => void }> = ({ preference, onNavigateToTasks }) => {
+    const exams = INITIAL_EXAMS.filter(e => preference === 'None' ? true : e.name === preference);
+    const [expandedId, setExpandedId] = useState<string | null>(exams[0]?.id || null);
+
+    if (preference === 'None') return null;
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {exams.map(exam => (
                 <ExamWidget key={exam.id} exam={exam} isExpanded={expandedId === exam.id} onToggle={() => setExpandedId(expandedId === exam.id ? null : exam.id)} onNavigateToTasks={onNavigateToTasks} />
             ))}

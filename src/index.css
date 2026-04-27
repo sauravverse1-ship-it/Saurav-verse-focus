@@ -142,7 +142,7 @@
   }
 
   body {
-    @apply font-mono antialiased selection:bg-md-primary/30 overflow-x-hidden;
+    @apply font-mono antialiased selection:bg-md-primary/30 overflow-x-clip;
     background: var(--ink);
     color: var(--text);
   }

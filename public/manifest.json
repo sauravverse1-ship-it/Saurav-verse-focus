@@ -1,0 +1,24 @@
+{
+  "name": "Quantum Focus",
+  "short_name": "QuantumFocus",
+  "description": "Optimize your life with AI-driven habit tracking and focus management.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#020206",
+  "theme_color": "#00ffe0",
+  "icons": [
+    {
+      "src": "https://storage.googleapis.com/bit-p-storage-v1-production-09c0/865131783853/ais-attachments/8b4952d7-9ea8-4b72-9721-e37604f86d63/1745591560943.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://storage.googleapis.com/bit-p-storage-v1-production-09c0/865131783853/ais-attachments/8b4952d7-9ea8-4b72-9721-e37604f86d63/1745591560943.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

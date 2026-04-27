@@ -1,30 +1,33 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Zap, Target, Flame, Terminal, Clock } from 'lucide-react';
+import { X, Zap, Target, Flame, Terminal, Clock, RotateCcw } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 interface AddTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (title: string, category: 'study' | 'health' | 'personal', urgent: boolean, sessions: number, subject?: string | string[]) => void;
+  onAdd: (title: string, category: 'study' | 'health' | 'personal', urgent: boolean, sessions: number, subject?: string | string[], isRevision?: boolean) => void;
   defaultCategory?: 'study' | 'health' | 'personal';
+  defaultIsRevision?: boolean;
   subjects?: {id: string, name: string, color: string}[];
 }
 
-export const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onAdd, defaultCategory, subjects = [] }) => {
+export const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onAdd, defaultCategory, defaultIsRevision = false, subjects = [] }) => {
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<'study' | 'health' | 'personal'>(defaultCategory || 'study');
   const [urgent, setUrgent] = useState(false);
   const [sessions, setSessions] = useState(1);
+  const [isRevision, setIsRevision] = useState(defaultIsRevision);
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
-    onAdd(title, category, urgent, sessions, selectedSubjects.length > 0 ? selectedSubjects : undefined);
+    onAdd(title, category, urgent, sessions, selectedSubjects.length > 0 ? selectedSubjects : undefined, isRevision);
     setTitle('');
     setUrgent(false);
     setSessions(1);
+    setIsRevision(false);
     setSelectedSubjects([]);
     onClose();
   };
@@ -161,6 +164,18 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onA
                     >
                       <Zap className={cn("w-5 h-5", urgent && "fill-red-500")} />
                       <span>Priority Alpha</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsRevision(!isRevision)}
+                      className={cn(
+                        "flex-1 h-14 rounded-3xl border flex items-center justify-center gap-3 transition-all font-black text-xs uppercase tracking-[0.2em] shadow-inner",
+                        isRevision ? "bg-amber-500/10 border-amber-500/40 text-amber-500 shadow-[0_0_30px_rgba(245,158,11,0.2)]" : "bg-white/5 border-white/5 text-white/30 hover:bg-white/10"
+                      )}
+                    >
+                      <RotateCcw className={cn("w-5 h-5", isRevision && "text-amber-500")} />
+                      <span>Revision Mode</span>
                     </button>
                   </div>
 

@@ -1,14 +1,14 @@
 import { AtmosphereSheet } from './components/AtmosphereSheet';
 import { playAmbientSound, stopAmbientSound, setMasterVolume } from './services/audioService';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, User, signOut, signInAnonymously } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc, collection, query, where, onSnapshot, addDoc, updateDoc, increment, orderBy, limit, deleteDoc } from 'firebase/firestore';
+import { db, auth, googleProvider, handleFirestoreError, OperationType } from './lib/firebase';
+import { signInWithPopup, onAuthStateChanged, User, signOut, signInAnonymously } from 'firebase/auth';
+import { doc, setDoc, getDoc, collection, query, where, onSnapshot, addDoc, updateDoc, increment, orderBy, limit, deleteDoc } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Play, Pause, RotateCcw, CheckCircle, Home, Timer, BarChart2, User as UserIcon, 
   Plus, Settings, Volume2, VolumeX, Maximize2, Minimize2, Award, Zap, 
-  CloudRain, Coffee, Wind, LogOut, BookOpen, Heart, Activity, Calendar, 
+  CloudRain, Coffee, Wind, LogOut, Download, BookOpen, Heart, Activity, Calendar, 
   Trash2, Edit, ChevronRight, Hash, Clock, Brain, Target, Flame, Sparkles, MessageSquare, Battery, Droplets, Moon, Utensils, ShieldCheck, ThumbsUp, ThumbsDown, SkipForward, Star, Music, AlertCircle, Trophy
 } from 'lucide-react';
 import { getAICoachResponse, getAIQuote, getAIHabitSuggestions } from './services/geminiService';
@@ -16,7 +16,6 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, 
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
 import './i18n';
-import firebaseConfig from '../firebase-applet-config.json';
 import { Howl } from 'howler';
 import { HeroSection, StorySection } from './components/CinematicSections';
 import { ExamCard } from './components/ExamCountdown/ExamCard';
@@ -31,6 +30,7 @@ import { HabitHeatMap, HabitStreakInfo } from './components/HabitStats';
 import { AddTaskModal } from './components/AddTaskModal';
 import { AddHabitModal } from './components/AddHabitModal';
 import { AdaptiveWidgetGrid } from './components/AdaptiveWidgets';
+import { WeeklyPlanner } from './components/WeeklyPlanner';
 import { RankUpCeremony, AchievementUnlock, XPLabel, ComboDisplay, ConfettiCanvas, launchConfetti, LegendText, TickingNumber } from './components/GamificationOverlay';
 import { useGamification } from './lib/useGamification';
 import { getRank, getXPProgress, getDailyChallenges, ACHIEVEMENTS } from './lib/gamification';
@@ -40,12 +40,6 @@ import { cn } from './lib/utils';
 import { UserProfile, Task, Habit, FocusSession, SessionLog } from './types';
 import { AnalyticsView } from './components/AnalyticsView';
 import gsap from 'gsap';
-
-// --- Firebase Init ---
-const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
-export const auth = getAuth(app);
-const googleProvider = new GoogleAuthProvider();
 
 // Constants moved to types.ts or used directly
 
@@ -208,6 +202,7 @@ export default function App() {
   };
 
   const [user, setUser] = useState<User | null>(null);
+  const userPath = useMemo(() => user ? `users/${user.uid}` : '', [user]);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -217,7 +212,7 @@ export default function App() {
   // AI Coach State
   const [isCoachOpen, setIsCoachOpen] = useState(false);
   const [coachMessages, setCoachMessages] = useState<{ role: 'user' | 'ai', text: string, habitSuggestions?: {title: string, icon: string, description: string}[] }[]>([
-    { role: 'ai', text: 'Quantum systems initialized. Ready to grind? I have analyzed your schedule for JEE 2026.' }
+    { role: 'ai', text: 'Quantum systems initialized. Ready to grind? I have analyzed your schedule for 2027.' }
   ]);
   const [isAiTyping, setIsAiTyping] = useState(false);
   
@@ -363,9 +358,19 @@ export default function App() {
   } = useGamification(profile, setProfile);
 
   const [showAchievements, setShowAchievements] = useState(false);
+  const [examPreference, setExamPreferenceState] = useState<'JEE' | 'NEET' | 'None'>('None');
+  const examPrefRef = useRef<'JEE' | 'NEET' | 'None'>('None');
+  
+  const setExamPreference = (val: 'JEE' | 'NEET' | 'None') => {
+    setExamPreferenceState(val);
+    examPrefRef.current = val;
+  };
+  const [isRevisionPreferred, setIsRevisionPreferred] = useState(false);
+  const [taskMode, setTaskMode] = useState<'standard' | 'revision'>('standard');
 
-  const openAddTaskModal = (cat: 'study' | 'health' | 'personal' = 'study') => {
+  const openAddTaskModal = (cat: 'study' | 'health' | 'personal' = 'study', revision = false) => {
     setAddTaskCategory(cat);
+    setIsRevisionPreferred(revision);
     setIsAddTaskModalOpen(true);
   };
   const [ambientSound, setAmbientSound] = useState<string>('none');
@@ -373,6 +378,23 @@ export default function App() {
   const [ambientVolume, setAmbientVolume] = useState(0.5);
   const [activeAmbientCategory, setActiveAmbientCategory] = useState<string>('nature');
   const soundRef = useRef<Howl | null>(null);
+
+  const [installedHabitIds, setInstalledHabitIds] = useState<string[]>([]);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setUser(null);
+      setProfile(null);
+      setTasks([]);
+      setHabits([]);
+      setSessionLogs([]);
+      setView('dashboard');
+    } catch (e) {
+      console.error("Logout failed:", e);
+    }
+  };
 
   // --- Auth & Data Sync ---
   useEffect(() => {
@@ -383,29 +405,47 @@ export default function App() {
       console.log("Auth state changed:", u?.uid || "null");
       if (u) {
         setUser(u);
+        const userPath = `users/${u.uid}`;
         // Sync Profile
         try {
-          const userDoc = doc(db, 'users', u.uid);
-          const snap = await getDoc(userDoc);
-          if (snap.exists()) {
+          const userDoc = doc(db, userPath);
+          let snap;
+          try {
+            snap = await getDoc(userDoc);
+          } catch (e) {
+            handleFirestoreError(e, OperationType.GET, userPath);
+          }
+          if (snap && snap.exists()) {
             console.log("Profile found:", snap.id);
             const data = snap.data() as UserProfile;
-            const today = new Date().toISOString().split('T')[0];
+            const today = format(new Date(), 'yyyy-MM-dd');
             
-            // Remove the specific annoying photo if it's set as DP
+            // Set Profile Photo
+            const defaultPhoto = "https://storage.googleapis.com/bit-p-storage-v1-production-09c0/865131783853/ais-attachments/1858c14a-579c-4613-bad7-5262077e6ec3/1745736625807.png";
             const annoyingPhotoURL = 'https://storage.googleapis.com/bit-p-storage-v1-production-09c0/865131783853/ais-attachments/8b4952d7-9ea8-4b72-9721-e37604f86d63/1745589410141.png';
-            if (data.photoURL === annoyingPhotoURL) {
-              const newAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.uid}`;
-              await updateDoc(userDoc, { photoURL: newAvatar });
-              data.photoURL = newAvatar;
+            if (!data.photoURL || data.photoURL === annoyingPhotoURL || data.photoURL.includes('dicebear')) {
+              try {
+                await updateDoc(userDoc, { photoURL: defaultPhoto });
+              } catch (e) {
+                handleFirestoreError(e, OperationType.UPDATE, userPath);
+              }
+              data.photoURL = defaultPhoto;
+            }
+
+            if (data.examPreference) {
+              setExamPreference(data.examPreference);
             }
 
             if (data.lastActiveDate !== today) {
               const newChallenges = getDailyChallenges(today);
-              await updateDoc(userDoc, { 
-                dailyChallenges: newChallenges,
-                lastActiveDate: today 
-              });
+              try {
+                await updateDoc(userDoc, { 
+                  dailyChallenges: newChallenges,
+                  lastActiveDate: today 
+                });
+              } catch (e) {
+                handleFirestoreError(e, OperationType.UPDATE, userPath);
+              }
               data.dailyChallenges = newChallenges;
               data.lastActiveDate = today;
             }
@@ -422,9 +462,9 @@ export default function App() {
               rank: 'Novice',
               allTimeXP: 0,
               unlockedAchievements: [],
-              dailyChallenges: getDailyChallenges(new Date().toISOString().split('T')[0]),
+              dailyChallenges: getDailyChallenges(format(new Date(), 'yyyy-MM-dd')),
               streakShields: 0,
-              lastActiveDate: new Date().toISOString().split('T')[0],
+              lastActiveDate: format(new Date(), 'yyyy-MM-dd'),
               totalFocusSeconds: 0,
               pomodorosCompleted: 0,
               health: {
@@ -437,6 +477,7 @@ export default function App() {
                 discipline: 0,
                 consistency: 0,
               },
+              ...(examPrefRef.current && examPrefRef.current !== 'None' ? { examPreference: examPrefRef.current as 'JEE'|'NEET' } : {}),
               jee: {
                 targetAIR: 100,
                 weakChapters: [],
@@ -450,22 +491,36 @@ export default function App() {
                 autoStartNextSession: false
               }
             };
-            await setDoc(userDoc, newProfile);
+            try {
+              // Remove undefined fields just to be safe
+              Object.keys(newProfile).forEach(key => (newProfile as any)[key] === undefined && delete (newProfile as any)[key]);
+              await setDoc(userDoc, newProfile);
+            } catch (e) {
+              handleFirestoreError(e, OperationType.CREATE, userPath);
+            }
             setProfile(newProfile);
           }
 
           // Sync Tasks
           console.log("Syncing tasks...");
-          const q = query(collection(db, 'users', u.uid, 'tasks'), orderBy('createdAt', 'desc'));
+          const tasksPath = `users/${u.uid}/tasks`;
+          const q = query(collection(db, tasksPath), orderBy('createdAt', 'desc'));
           unsubTasks = onSnapshot(q, (s) => {
             setTasks(s.docs.map(d => ({ id: d.id, ...d.data() } as Task)));
+          }, (e) => {
+            handleFirestoreError(e, OperationType.LIST, tasksPath);
           });
 
           // Sync Habits
           console.log("Syncing habits...");
-          const hQ = query(collection(db, 'users', u.uid, 'habits'), orderBy('createdAt', 'desc'));
+          const habitsPath = `users/${u.uid}/habits`;
+          const hQ = query(collection(db, habitsPath), orderBy('createdAt', 'desc'));
           unsubHabits = onSnapshot(hQ, (s) => {
-            setHabits(s.docs.map(d => ({ id: d.id, ...d.data() } as Habit)));
+            const habitsData = s.docs.map(d => ({ id: d.id, ...d.data() } as Habit));
+            setHabits(habitsData);
+            setInstalledHabitIds(habitsData.map(h => h.title));
+          }, (e) => {
+            handleFirestoreError(e, OperationType.LIST, habitsPath);
           });
         } catch (err) {
           console.error("Data sync error:", err);
@@ -473,19 +528,40 @@ export default function App() {
           setLoading(false);
         }
       } else {
+        setUser(null);
+        setProfile(null);
+        setTasks([]);
+        setHabits([]);
         setLoading(false);
       }
     });
+
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
     return () => {
       unsubscribe();
       unsubTasks();
       unsubHabits();
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     };
   }, []);
 
   const [currentSessionSeconds, setCurrentSessionSeconds] = useState(0);
   const [taskView, setTaskView] = useState<'active' | 'completed'>('active');
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+    }
+  };
 
   const totalFocusToday = useMemo(() => {
     const now = new Date();
@@ -503,12 +579,18 @@ export default function App() {
     let interval: NodeJS.Timeout;
     if (isRunning && timeLeft > 0) {
       interval = setInterval(() => {
-        setTimeLeft(t => t - 1);
+        setTimeLeft(t => {
+          if (t <= 1) {
+            clearInterval(interval);
+            return 0;
+          }
+          return t - 1;
+        });
         if (mode === 'study') {
           setCurrentSessionSeconds(s => s + 1);
         }
       }, 1000);
-    } else if (timeLeft === 0) {
+    } else if (timeLeft === 0 && isRunning) {
       handleTimerComplete();
     }
     return () => clearInterval(interval);
@@ -518,10 +600,14 @@ export default function App() {
   useEffect(() => {
     if (currentSessionSeconds > 0 && currentSessionSeconds % 60 === 0 && user) {
       const updateFocus = async () => {
-        const userDoc = doc(db, 'users', user.uid);
-        await updateDoc(userDoc, {
-          totalFocusSeconds: increment(60)
-        });
+        const userDoc = doc(db, userPath);
+        try {
+          await updateDoc(userDoc, {
+            totalFocusSeconds: increment(60)
+          });
+        } catch (e) {
+          handleFirestoreError(e, OperationType.UPDATE, userPath);
+        }
       };
       updateFocus();
     }
@@ -556,6 +642,8 @@ export default function App() {
     }
   }, [ambientVolume]);
 
+  const isCompletingSessionRef = useRef(false);
+
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
@@ -563,6 +651,9 @@ export default function App() {
   }, []);
 
   const handleTimerComplete = async () => {
+    if (isCompletingSessionRef.current) return;
+    isCompletingSessionRef.current = true;
+    
     setIsRunning(false);
     const score = calculateFocusScore();
     setFocusScore(score);
@@ -575,7 +666,7 @@ export default function App() {
     }
     
     if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification('Saurav Focus Engine', {
+      new Notification('Quantum Focus', {
         body: mode === 'study' ? '🎯 Focus session complete! Time to recharge.' : '⚡ Break over. Ready to dominate.',
       });
     }
@@ -605,36 +696,42 @@ export default function App() {
         };
         
         setSessionLogs(prev => {
-           const updated = [...prev, newSessionLog];
+           const updated = [...prev, newSessionLog].slice(-200);
            localStorage.setItem('pomodoro_sessions', JSON.stringify(updated));
            return updated;
         });
 
         if (user && profile) {
-          const newFocus = (profile.skills?.focus || 0) + 2;
-          const newCons = (profile.skills?.consistency || 0) + 1;
+          const userDoc = doc(db, userPath);
+          try {
+            await updateDoc(userDoc, {
+              pomodorosCompleted: increment(1),
+              totalFocusSeconds: increment(recordedSeconds),
+              'skills.focus': (profile.skills?.focus || 0) + 2,
+              'skills.consistency': (profile.skills?.consistency || 0) + 1
+            });
 
-          const userDoc = doc(db, 'users', user.uid);
-          await updateDoc(userDoc, {
-            pomodorosCompleted: increment(1),
-            totalFocusSeconds: increment(recordedSeconds),
-            'skills.focus': newFocus,
-            'skills.consistency': newCons
-          });
-
-          await setDoc(doc(db, 'users', user.uid, 'sessions', sessionId), {
-            userId: user.uid,
-            taskId: selectedTaskId,
-            duration: recordedSeconds,
-            timestamp: Date.now(),
-            xpEarned: xpEarned,
-            missionTitle: sessionIntention || 'Focus Session',
-            subject: selectedTaskId ? tasks.find(t => t.id === selectedTaskId)?.subjects?.[0] : null,
-          });
+            await setDoc(doc(db, userPath, 'sessions', sessionId), {
+              userId: user.uid,
+              taskId: selectedTaskId,
+              duration: recordedSeconds,
+              timestamp: Date.now(),
+              xpEarned: xpEarned,
+              missionTitle: sessionIntention || 'Focus Session',
+              subject: selectedTaskId ? tasks.find(t => t.id === selectedTaskId)?.subjects?.[0] : null,
+            });
+          } catch (e) {
+            handleFirestoreError(e, OperationType.WRITE, userPath);
+          }
 
           if (selectedTaskId) {
-            const taskDoc = doc(db, 'users', user.uid, 'tasks', selectedTaskId);
-            await updateDoc(taskDoc, { sessions: increment(1) });
+            const taskPath = `${userPath}/tasks/${selectedTaskId}`;
+            try {
+              const taskDoc = doc(db, taskPath);
+              await updateDoc(taskDoc, { sessions: increment(1) });
+            } catch (e) {
+              handleFirestoreError(e, OperationType.UPDATE, taskPath);
+            }
           }
 
           setCurrentSessionSeconds(0);
@@ -652,6 +749,7 @@ export default function App() {
           if (profile?.settings?.autoStartNextSession) {
             setIsRunning(true);
           }
+          isCompletingSessionRef.current = false;
         }, 5000);
 
       } else {
@@ -665,23 +763,26 @@ export default function App() {
         setTimeLeft(profile?.settings?.workDuration ? profile.settings.workDuration * 60 : 50 * 60);
         
         if (user && profile) {
-          const userDoc = doc(db, 'users', user.uid);
-          await updateDoc(userDoc, {
-            'skills.discipline': (profile.skills?.discipline || 0) + 2
-          });
+          try {
+            const userDoc = doc(db, userPath);
+            await updateDoc(userDoc, {
+              'skills.discipline': (profile.skills?.discipline || 0) + 2
+            });
+          } catch (e) {
+            handleFirestoreError(e, OperationType.UPDATE, userPath);
+          }
         }
 
-        if (profile?.settings?.autoStartNextSession) {
-          setTimeout(() => setIsRunning(true), 1500);
-        }
+        setTimeout(() => {
+          if (profile?.settings?.autoStartNextSession) {
+            setIsRunning(true);
+          }
+          isCompletingSessionRef.current = false;
+        }, 1500);
       }
     } catch (error) {
       console.error("Timer completion updates failed:", error);
-    } finally {
-      if (profile?.settings?.autoStartNextSession) {
-        // Ensure state is updated before starting
-        setTimeout(() => setIsRunning(true), 500);
-      }
+      isCompletingSessionRef.current = false;
     }
   };
 
@@ -714,7 +815,7 @@ export default function App() {
     return score;
   };
 
-  const resetTimer = () => {
+  const resetTimer = async () => {
     if (mode === 'study' && currentSessionSeconds > 0) {
         const recordedSeconds = currentSessionSeconds;
         const newSessionLog: SessionLog = {
@@ -727,15 +828,20 @@ export default function App() {
            completed: false // Manual reset means not completed the full timer
         };
         setSessionLogs(prev => {
-           const updated = [...prev, newSessionLog];
+           const updated = [...prev, newSessionLog].slice(-200);
            localStorage.setItem('pomodoro_sessions', JSON.stringify(updated));
            return updated;
         });
         
         if (user) {
-          updateDoc(doc(db, 'users', user.uid), {
-            totalFocusSeconds: increment(recordedSeconds)
-          });
+          const userPath = `users/${user.uid}`;
+          try {
+            await updateDoc(doc(db, userPath), {
+              totalFocusSeconds: increment(recordedSeconds)
+            });
+          } catch (e) {
+            handleFirestoreError(e, OperationType.UPDATE, userPath);
+          }
         }
     }
     setIsRunning(false);
@@ -751,8 +857,8 @@ export default function App() {
       if (e.code === 'Space') {
         e.preventDefault();
         toggleTimer();
-      } else if (e.code === 'KeyS') {
-        // Only trigger Skip on 's' press
+      } else if (e.code === 'KeyS' && isRunning) {
+        // Only trigger Skip on 's' press when timer is running
         handleTimerComplete();
       }
     };
@@ -761,68 +867,94 @@ export default function App() {
   }, [isRunning, mode, selectedTaskId, tasks, profile]);
 
   // --- Task Actions ---
-  const addTask = async (title: string, category: 'study' | 'personal' | 'health' = 'study', urgent: boolean = false, sessions: number = 1, subjectId?: string | string[]) => {
+  const addTask = async (title: string, category: 'study' | 'personal' | 'health' = 'study', urgent: boolean = false, sessions: number = 1, subjectId?: string | string[], isRevision?: boolean) => {
     if (!user || !title.trim()) return;
     const finalSubjects = Array.isArray(subjectId) ? subjectId : (subjectId ? [subjectId] : []);
-    await addDoc(collection(db, 'users', user.uid, 'tasks'), {
-      userId: user.uid,
-      title,
-      description: '',
-      completed: false,
-      urgent,
-      sessions: 0,
-      expectedSessions: sessions,
-      category,
-      subjects: finalSubjects,
-      priority: urgent ? 'high' : 'medium',
-      createdAt: Date.now()
-    });
+    const tasksPath = `users/${user.uid}/tasks`;
+    try {
+      await addDoc(collection(db, tasksPath), {
+        userId: user.uid,
+        title,
+        description: '',
+        completed: false,
+        urgent,
+        sessions: 0,
+        expectedSessions: sessions,
+        category,
+        isRevision: isRevision ?? isRevisionPreferred,
+        subjects: finalSubjects,
+        priority: urgent ? 'high' : 'medium',
+        createdAt: Date.now()
+      });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.CREATE, tasksPath);
+    }
   };
 
   const deleteTask = async (taskId: string) => {
     if (!user) return;
-    const taskDoc = doc(db, 'users', user.uid, 'tasks', taskId);
-    await deleteDoc(taskDoc);
-    if (selectedTaskId === taskId) setSelectedTaskId(null);
+    const taskPath = `users/${user.uid}/tasks/${taskId}`;
+    try {
+      const taskDoc = doc(db, taskPath);
+      await deleteDoc(taskDoc);
+      if (selectedTaskId === taskId) setSelectedTaskId(null);
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, taskPath);
+    }
   };
 
   const toggleTask = async (task: Task) => {
     if (!user) return;
-    const taskDoc = doc(db, 'users', user.uid, 'tasks', task.id);
-    await updateDoc(taskDoc, { 
-      completed: !task.completed,
-      completedAt: !task.completed ? Date.now() : null
-    });
-    // Award XP
-    if (!task.completed) {
-      awardXP(25, 'tasks', 'OBJECTIVE SECURED');
-      launchConfetti({ origin: { x: 0.5, y: 0.2 }, count: 30 });
+    const taskPath = `users/${user.uid}/tasks/${task.id}`;
+    try {
+      const taskDoc = doc(db, taskPath);
+      await updateDoc(taskDoc, { 
+        completed: !task.completed,
+        completedAt: !task.completed ? Date.now() : null
+      });
+      // Award XP
+      if (!task.completed) {
+        awardXP(25, 'tasks', 'OBJECTIVE SECURED');
+        launchConfetti({ origin: { x: 0.5, y: 0.2 }, count: 30 });
+      }
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, taskPath);
     }
   };
 
   // --- Habit Actions ---
   const addHabit = async (title: string, icon: string = 'Zap') => {
     if (!user || !title.trim()) return;
-    await addDoc(collection(db, 'users', user.uid, 'habits'), {
-      userId: user.uid,
-      title,
-      description: '',
-      icon,
-      streak: 0,
-      streakBest: 0,
-      completedDates: [],
-      createdAt: Date.now()
-    });
+    const habitsPath = `users/${user.uid}/habits`;
+    try {
+      await addDoc(collection(db, habitsPath), {
+        userId: user.uid,
+        title,
+        description: '',
+        icon,
+        streak: 0,
+        streakBest: 0,
+        completedDates: [],
+        createdAt: Date.now()
+      });
+      playTick();
+      if (typeof window !== 'undefined' && window.navigator.vibrate) window.navigator.vibrate(50);
+    } catch (e) {
+      console.error("Failed to add habit:", e);
+      handleFirestoreError(e, OperationType.CREATE, habitsPath);
+    }
   };
 
   const deleteHabit = async (habitId: string) => {
     if (!user) return;
+    const habitPath = `users/${user.uid}/habits/${habitId}`;
     try {
-      const habitDoc = doc(db, 'users', user.uid, 'habits', habitId);
+      const habitDoc = doc(db, habitPath);
       await deleteDoc(habitDoc);
       playWhoosh();
     } catch (e) {
       console.error("Delete habit failed:", e);
+      handleFirestoreError(e, OperationType.DELETE, habitPath);
     }
   };
 
@@ -831,49 +963,54 @@ export default function App() {
     const today = format(new Date(), 'yyyy-MM-dd');
     const completedDates = habit.completedDates || [];
     const isCompleted = completedDates.includes(today);
-    const habitDoc = doc(db, 'users', user.uid, 'habits', habit.id);
+    const habitPath = `users/${user.uid}/habits/${habit.id}`;
+    const habitDoc = doc(db, habitPath);
 
-    if (isCompleted) {
-      const newDates = completedDates.filter(d => d !== today);
-      await updateDoc(habitDoc, { completedDates: newDates });
-    } else {
-      const newDates = [...completedDates, today];
-      
-      // Calculate streak (simple version)
-      let currentStreak = 1;
-      const sortedDates = [...newDates].sort((a, b) => b.localeCompare(a));
-      for (let i = 0; i < sortedDates.length - 1; i++) {
-        const d1 = new Date(sortedDates[i]);
-        const d2 = new Date(sortedDates[i+1]);
-        const diff = (d1.getTime() - d2.getTime()) / (1000 * 3600 * 24);
-        if (diff === 1) currentStreak++;
-        else break;
-      }
+    try {
+      if (isCompleted) {
+        const newDates = completedDates.filter(d => d !== today);
+        await updateDoc(habitDoc, { completedDates: newDates });
+      } else {
+        const newDates = [...completedDates, today];
+        
+        // Calculate streak (simple version)
+        let currentStreak = 1;
+        const sortedDates = [...newDates].sort((a, b) => b.localeCompare(a));
+        for (let i = 0; i < sortedDates.length - 1; i++) {
+          const d1 = new Date(sortedDates[i]);
+          const d2 = new Date(sortedDates[i+1]);
+          const diff = (d1.getTime() - d2.getTime()) / (1000 * 3600 * 24);
+          if (diff === 1) currentStreak++;
+          else break;
+        }
 
-      await updateDoc(habitDoc, { 
-        completedDates: newDates,
-        streak: currentStreak,
-        streakBest: Math.max(habit.streakBest || 0, currentStreak)
-      });
-      
-      // Bonus XP for milestones
-      let bonusXp = 0;
-      if (currentStreak % 7 === 0) bonusXp += 50; // Bonus every week
-      if (currentStreak === 30) bonusXp += 200;
-      
-      const newBest = currentStreak > (habit.streakBest || 0);
-      if (newBest && currentStreak >= 3) {
-         setStreakAchieved(currentStreak);
-         setTimeout(() => setStreakAchieved(null), 3000);
-      }
+        await updateDoc(habitDoc, { 
+          completedDates: newDates,
+          streak: currentStreak,
+          streakBest: Math.max(habit.streakBest || 0, currentStreak)
+        });
+        
+        // Bonus XP for milestones
+        let bonusXp = 0;
+        if (currentStreak % 7 === 0) bonusXp += 50; // Bonus every week
+        if (currentStreak === 30) bonusXp += 200;
+        
+        const newBest = currentStreak > (habit.streakBest || 0);
+        if (newBest && currentStreak >= 3) {
+           setStreakAchieved(currentStreak);
+           setTimeout(() => setStreakAchieved(null), 3000);
+        }
 
-      // Award XP
-      const labels = ['PROTOCOL SECURED', 'HABIT MARKED', 'CONSISTENCY +1'];
-      const randomLabel = labels[Math.floor(Math.random() * labels.length)];
-      awardXP(20, 'habits', bonusXp > 0 ? 'STREAK BONUS' : randomLabel);
-      if (bonusXp > 0) {
-        launchConfetti({ count: 50 });
+        // Award XP
+        const labels = ['PROTOCOL SECURED', 'HABIT MARKED', 'CONSISTENCY +1'];
+        const randomLabel = labels[Math.floor(Math.random() * labels.length)];
+        awardXP(20, 'habits', bonusXp > 0 ? 'STREAK BONUS' : randomLabel);
+        if (bonusXp > 0) {
+          launchConfetti({ count: 50 });
+        }
       }
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, habitPath);
     }
   };
 
@@ -955,57 +1092,106 @@ export default function App() {
   );
 
   if (!user && view === 'dashboard') return (
-    <div className="h-screen w-screen flex flex-col items-center justify-center bg-zinc-950 p-8">
+    <div className="h-screen w-screen flex flex-col items-center justify-center bg-zinc-950 p-8 overflow-y-auto selection:bg-blue-500/30">
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="cinematic-grid opacity-20" />
+        <div className="absolute inset-0 bg-gradient-to-b from-blue-600/5 via-transparent to-transparent" />
+      </div>
+      
       <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="text-center space-y-10 max-w-md w-full"
+        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        className="relative z-10 text-center space-y-10 max-w-md w-full py-12"
       >
-        <div className="w-20 h-20 bg-blue-600 rounded-[2rem] mx-auto flex items-center justify-center shadow-2xl shadow-blue-500/30">
-          <Zap className="w-10 h-10 text-white fill-white" />
+        <div className="relative w-24 h-24 mx-auto group">
+           <div className="absolute inset-0 bg-blue-600 rounded-[2.2rem] blur-2xl opacity-20 group-hover:opacity-40 transition-opacity" />
+           <div className="relative w-24 h-24 bg-blue-600 rounded-[2.2rem] flex items-center justify-center shadow-2xl shadow-blue-500/20 border border-white/10">
+             <Zap className="w-12 h-12 text-white fill-white transform group-hover:scale-110 transition-transform" />
+           </div>
         </div>
         
         <div className="space-y-3">
-          <h1 className="text-3xl font-black tracking-wider text-white uppercase italic">Quantum</h1>
-          <p className="text-zinc-400 text-sm leading-relaxed px-4">
-            The ultimate productivity companion for JEE aspirants.
+          <div className="flex flex-col items-center justify-center">
+            <span className="text-blue-500 font-mono text-[10px] tracking-[0.5em] font-black mb-2 animate-pulse">ESTABLISHING CONNECTION</span>
+            <h1 className="text-5xl font-black tracking-tight text-white uppercase italic leading-none">Quantum</h1>
+          </div>
+          <p className="text-zinc-400 text-sm leading-relaxed px-8 font-serif italic opacity-60">
+            "The distance between who you are and who you want to be is called what you do."
           </p>
         </div>
-        
-        <div className="space-y-4 pt-4">
-          <button 
-            onClick={() => signInWithPopup(auth, googleProvider).catch(e => {
-               console.error("Popup failed, trying redirect or anonymous", e);
-               signInAnonymously(auth).catch((anonErr) => {
-                 alert("Authentication failed. Please open the app in a new tab to use Google Sign-in, or ensure Anonymous Auth is enabled in Firebase.");
-               });
-            })}
-            className="w-full h-14 bg-white text-black font-bold rounded-2xl flex items-center justify-center gap-3 active:scale-95 transition-all"
-          >
-            <UserIcon className="w-5 h-5" />
-            Sign in with Google
-          </button>
-          
-          <button 
-            onClick={() => signInAnonymously(auth).catch((anonErr) => {
-               alert("Guest login failed. Please ensure Anonymous Auth is enabled in Firebase Console: Authentication > Sign-in method.");
-            })}
-            className="w-full h-14 bg-zinc-800 text-white font-bold rounded-2xl active:scale-95 transition-all"
-          >
-            Continue as Guest
-          </button>
+
+        <div className="glass-card p-6 border border-white/5 rounded-[2.5rem] bg-white/[0.02] backdrop-blur-xl space-y-6">
+           <div className="space-y-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Primary Objective</p>
+              <div className="grid grid-cols-2 gap-3">
+                 {(['JEE', 'NEET'] as const).map(pref => (
+                   <button
+                     key={pref}
+                     onClick={() => setExamPreference(pref)}
+                     className={cn(
+                       "py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all duration-500",
+                       examPreference === pref 
+                        ? "bg-white text-black border-white shadow-[0_0_30px_rgba(255,255,255,0.2)]" 
+                        : "bg-white/5 border-white/5 text-white/20 hover:bg-white/10"
+                     )}
+                   >
+                     {pref}
+                   </button>
+                 ))}
+              </div>
+           </div>
+           
+           <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+
+           <div className="space-y-3">
+             <button 
+               onClick={() => signInWithPopup(auth, googleProvider).then(async (result) => {
+                  if (result.user) {
+                     const uDoc = doc(db, 'users', result.user.uid);
+                     const snap = await getDoc(uDoc);
+                     if (snap.exists() && examPreference !== 'None') {
+                        await updateDoc(uDoc, { examPreference }).catch(() => {});
+                     }
+                  }
+               }).catch(e => {
+                  console.error("Login failed", e);
+               })}
+               className="w-full h-16 bg-white text-black font-black uppercase tracking-widest text-[10px] rounded-2xl flex items-center justify-center gap-4 active:scale-95 transition-all shadow-xl shadow-white/5"
+             >
+               <UserIcon className="w-4 h-4" />
+               Authorize with Cloud
+             </button>
+             
+             <button 
+               onClick={() => signInAnonymously(auth).then(async (result) => {
+                  if (result.user) {
+                     const uDoc = doc(db, 'users', result.user.uid);
+                     const snap = await getDoc(uDoc);
+                     if (snap.exists() && examPreference !== 'None') {
+                        await updateDoc(uDoc, { examPreference }).catch(() => {});
+                     }
+                  }
+               })}
+               className="w-full h-16 bg-zinc-900 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl active:scale-95 transition-all outline-none border border-white/5 hover:bg-zinc-800"
+             >
+               Enter as Ghost
+             </button>
+           </div>
         </div>
         
-        <p className="text-[9px] text-zinc-600 uppercase tracking-[0.2em] font-bold">
-          Protected by Quantum Encryption
-        </p>
+        <div className="flex flex-col items-center gap-2">
+          <div className="h-[1px] w-12 bg-blue-500/30" />
+          <p className="text-[8px] text-zinc-600 uppercase tracking-[0.4em] font-black">
+            End-to-End Quantum Security
+          </p>
+        </div>
       </motion.div>
     </div>
   );
 
   return (
     <div className={cn(
-      "min-h-screen bg-background text-on-background page-content overflow-x-hidden selection:bg-primary/30",
+      "min-h-screen bg-background text-on-background page-content overflow-x-clip selection:bg-primary/30",
       profile?.settings?.isDopamineDetox && "grayscale-sm contrast-sm"
     )}>
       {/* Background Layers */}
@@ -1039,7 +1225,7 @@ export default function App() {
                  if(!user) return;
                  const h = habits.find(habit => habit.id === id);
                  if(!h) return;
-                 const today = new Date().toISOString().split('T')[0];
+                 const today = format(new Date(), 'yyyy-MM-dd');
                  if(h.completedDates?.includes(today)) return;
                  await updateDoc(doc(db, 'users', user.uid, 'habits', id), {
                    completedDates: [...(h.completedDates || []), today],
@@ -1050,7 +1236,6 @@ export default function App() {
               }}
               onDelete={deleteHabit}
             />
-            <DeveloperSection />
           </motion.div>
         ) : (
           <motion.div 
@@ -1061,7 +1246,7 @@ export default function App() {
           >
             {/* Header / Stats Overlay */}
             {!isFocusMode && (
-              <header className="p-6 flex items-center justify-between sticky top-0 bg-background/80 backdrop-blur-md z-30">
+              <header className="fixed top-0 left-0 md:left-64 right-0 p-4 md:p-6 flex items-center justify-between bg-background/95 backdrop-blur-xl z-[60] border-b border-white/5 shadow-lg shadow-black/20">
                 <div className="flex items-center gap-3">
                   <div 
                     onClick={() => setView('cinematic')}
@@ -1109,7 +1294,7 @@ export default function App() {
             {/* Main Content Area */}
             <main className={cn(
               "flex-1 overflow-x-hidden",
-              isFocusMode ? "p-0" : "p-6 md:p-12 pb-32 md:pb-12 max-w-2xl lg:max-w-4xl mx-auto space-y-12"
+              isFocusMode ? "p-0" : "px-6 pb-6 pt-24 md:px-12 md:pb-12 md:pt-32 max-w-2xl lg:max-w-4xl mx-auto space-y-12"
             )}>
               <AnimatePresence mode="wait">
                 {activeTab === 'home' && (
@@ -1156,7 +1341,7 @@ export default function App() {
 
                     {/* Exam Countdown */}
                     <div className="pb-4">
-                      <ExamCard onNavigateToTasks={() => setActiveTab('tasks')} />
+                      <ExamCard preference={examPreference} onNavigateToTasks={() => setActiveTab('tasks')} />
                     </div>
 
                     {/* AI Daily Quote */}
@@ -1286,7 +1471,7 @@ export default function App() {
                       </div>
                       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 pb-6 px-2">
                         {habits.map(habit => {
-                          const today = new Date().toISOString().split('T')[0];
+                          const today = format(new Date(), 'yyyy-MM-dd');
                           const isDone = (habit.completedDates || []).includes(today);
                           return (
                             <div key={habit.id} className="w-full">
@@ -1331,8 +1516,8 @@ export default function App() {
 
                     {/* Mission Categories */}
                     <section className="space-y-4">
-                      <h3 className="text-sm font-black uppercase tracking-widest opacity-40 px-2">Mission Sectors</h3>
-                      <div className="grid grid-cols-3 gap-3">
+                      <h3 className="text-sm font-black uppercase tracking-widest opacity-40 px-2 font-mono">Mission Control</h3>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         {Object.entries(CATEGORIES).map(([id, cat]) => {
                           const Icon = (cat.icon === 'BookOpen' ? BookOpen : cat.icon === 'Heart' ? Heart : UserIcon) as any;
                           const count = tasks.filter(t => t.category === id && !t.completed).length;
@@ -1718,16 +1903,35 @@ export default function App() {
               key="tasks"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
-              className="space-y-6"
+              className="space-y-6 pb-20"
             >
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between px-2">
                 <h3 className="text-2xl font-bold">Quantum Tasks</h3>
-                <button 
-                  onClick={() => openAddTaskModal('study')}
-                  className="p-3 bg-md-primary rounded-full text-md-on-primary shadow-lg shadow-md-primary/20 active:scale-95 transition-transform"
-                >
-                  <Plus className="w-6 h-6" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => {
+                      playTick();
+                      setTaskMode(prev => prev === 'standard' ? 'revision' : 'standard');
+                    }}
+                    className={cn(
+                      "px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all",
+                      taskMode === 'revision' ? "bg-amber-500/20 border-amber-500/50 text-amber-500" : "bg-white/5 border-white/5 text-white/40"
+                    )}
+                  >
+                    {taskMode === 'revision' ? 'Revision Mode' : 'Standard Mode'}
+                  </button>
+                  <button 
+                    onClick={() => openAddTaskModal('study', taskMode === 'revision')}
+                    className="p-3 bg-md-primary rounded-full text-md-on-primary shadow-lg shadow-md-primary/20 active:scale-95 transition-transform"
+                  >
+                    <Plus className="w-6 h-6" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Task Heatmap */}
+              <div className="glass-card p-4 md:p-6 border border-white/5 rounded-[2.5rem] space-y-6 md:space-y-8">
+                <HabitHeatMap completedDates={tasks.filter(t => t.completed && t.completedAt).map(t => format(new Date(t.completedAt!), 'yyyy-MM-dd'))} />
               </div>
 
               {/* Subject Filter Bar */}
@@ -1762,8 +1966,8 @@ export default function App() {
 
               {/* Subject Progress Bars */}
               <div className="flex flex-col gap-3 py-2">
-                 <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest px-1">Today's Subject Progress</p>
-                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                 <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest px-1 font-mono">Subject Progress Analytics</p>
+                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                     {allSubjects.map(sub => {
                         const todayTasks = tasks.filter(t => t.subjects?.includes(sub.id));
                         const total = todayTasks.length;
@@ -1812,6 +2016,7 @@ export default function App() {
                  {/* Reusing task card logic but in a dedicated view */}
                  {tasks
                     .filter(t => taskView === 'active' ? !t.completed : t.completed)
+                    .filter(t => taskMode === 'revision' ? !!t.isRevision : !t.isRevision)
                     .filter(t => selectedSubjectFilter === 'All' || (t.subjects && t.subjects.includes(selectedSubjectFilter)))
                     .map(task => {
                        const subject = task.subjects?.[0] ? allSubjects.find(s => s.id === task.subjects![0]) : null;
@@ -1839,6 +2044,11 @@ export default function App() {
                        );
                     })}
               </div>
+
+              {/* Weekly Planner */}
+              <div className="glass-card p-4 md:p-6 border border-white/5 rounded-[2.5rem]">
+                 <WeeklyPlanner tasks={tasks} />
+              </div>
             </motion.div>
           )}
 
@@ -1854,6 +2064,33 @@ export default function App() {
                   <button onClick={() => setIsAddHabitModalOpen(true)} className="text-[10px] font-black text-primary uppercase tracking-widest">+ Initialize</button>
               </div>
               <HabitsGrid habits={habits} onMark={toggleHabit} onDelete={deleteHabit} />
+
+              <div className="bg-white/5 border border-white/5 rounded-[2.5rem] p-6 space-y-4">
+                 <div className="flex items-center gap-2 px-2">
+                    <Sparkles className="w-4 h-4 text-pink-400" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Suggested Protocols</span>
+                 </div>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {[
+                      { title: 'Morning Physics', icon: 'Zap' },
+                      { title: 'Revise Formulas', icon: 'BookOpen' },
+                      { title: 'Hydration Scan', icon: 'Droplets' },
+                      { title: 'Dopamine Reset', icon: 'Moon' }
+                    ].map(h => (
+                      <button
+                        key={h.title}
+                        onClick={() => {
+                           addHabit(h.title, h.icon);
+                           launchConfetti({ count: 20 });
+                        }}
+                        className="flex items-center justify-between p-4 glass rounded-3xl border border-white/5 hover:bg-white/10 transition-all text-left"
+                      >
+                         <span className="text-sm font-bold">{h.title}</span>
+                         <Plus className="w-4 h-4 text-primary" />
+                      </button>
+                    ))}
+                 </div>
+              </div>
             </motion.div>
           )}
 
@@ -2054,6 +2291,32 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* Exam Preference */}
+                <div className="glass-card p-5 space-y-4">
+                   <div className="flex items-center gap-3 mb-2">
+                     <Target className="w-5 h-5 text-md-primary" />
+                     <span className="text-[10px] font-black uppercase tracking-widest opacity-40">Exam Protocol</span>
+                   </div>
+                   <div className="grid grid-cols-3 gap-2">
+                     {['JEE', 'NEET', 'None'].map((pref) => (
+                        <button 
+                          key={pref}
+                          onClick={async () => {
+                             if(!user) return;
+                             setExamPreference(pref as any);
+                             await updateDoc(doc(db, 'users', user.uid), { examPreference: pref });
+                             playTick();
+                          }}
+                          className={cn("px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all", 
+                            examPreference === pref ? "bg-md-primary border-md-primary text-md-on-primary shadow-lg shadow-md-primary/20" : "bg-white/5 border-white/5 opacity-60 hover:opacity-100"
+                          )}
+                        >
+                          {pref}
+                        </button>
+                     ))}
+                   </div>
+                </div>
+
                 {/* Sound & Notifications */}
                 <div className="glass-card p-5 space-y-6 flex flex-col gap-2">
                    <div className="space-y-3">
@@ -2102,13 +2365,25 @@ export default function App() {
                    </div>
                 </div>
 
-                <button 
-                  onClick={() => signOut(auth)}
-                  className="w-full flex items-center justify-between p-5 rounded-3xl bg-red-950/20 text-red-400 font-bold active:scale-95 transition-transform border border-red-900/10"
-                >
-                  <span>Sign Out</span>
-                  <LogOut className="w-5 h-5" />
-                </button>
+                <div className="space-y-4">
+                  {deferredPrompt && (
+                    <button 
+                      onClick={handleInstallClick}
+                      className="w-full flex items-center justify-between p-5 rounded-3xl bg-primary/10 text-primary font-bold active:scale-95 transition-transform border border-primary/20"
+                    >
+                      <span>Install App</span>
+                      <Download className="w-5 h-5" />
+                    </button>
+                  )}
+
+                  <button 
+                    onClick={handleLogout}
+                    className="w-full flex items-center justify-between p-5 rounded-3xl bg-red-950/20 text-red-400 font-bold active:scale-95 transition-transform border border-red-900/10"
+                  >
+                    <span>Sign Out</span>
+                    <LogOut className="w-5 h-5" />
+                  </button>
+                </div>
 
                 <div className="pt-4 space-y-4">
                   <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40 px-2">Danger Zone</h4>
@@ -2162,26 +2437,14 @@ export default function App() {
               </div>
               
               <div className="mt-8 pt-8 border-t border-white/5">
-                <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-4 px-2">Developer Tools</h4>
-                <div className="-mx-6">
+                <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-4 px-2">Meet the Architect</h4>
+                <div className="px-2">
                     <DeveloperSection />
                 </div>
               </div>
             </motion.div>
           )}
 
-          {activeTab === 'developer' && (
-            <motion.div
-              key="developer"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mt-12"
-            >
-              <div className="-mx-6">
-                 <DeveloperSection />
-              </div>
-            </motion.div>
-          )}
         </AnimatePresence>
 
         <AtmosphereSheet 
@@ -2418,10 +2681,17 @@ export default function App() {
                                     <span className="font-bold text-sm tracking-tight pt-1">{hs.title}</span>
                                   </div>
                                   <button 
-                                    onClick={() => addHabit(hs.title, hs.icon || 'Zap')}
-                                    className="text-[10px] font-black uppercase tracking-widest text-pink-400 bg-pink-500/10 px-3 py-1.5 rounded-full hover:bg-pink-500/20 whitespace-nowrap active:scale-95 transition-all"
+                                    onClick={() => {
+                                      addHabit(hs.title, hs.icon || 'Zap');
+                                      setInstalledHabitIds(prev => [...prev, hs.title]);
+                                    }}
+                                    disabled={installedHabitIds.includes(hs.title)}
+                                    className={cn(
+                                      "text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full whitespace-nowrap active:scale-95 transition-all text-pink-400 bg-pink-500/10 hover:bg-pink-500/20",
+                                      installedHabitIds.includes(hs.title) && "bg-green-500/20 text-green-400"
+                                    )}
                                   >
-                                    Init
+                                    {installedHabitIds.includes(hs.title) ? "Active" : "Init"}
                                   </button>
                                 </div>
                                 <p className="text-xs text-white/60 leading-relaxed relative z-10">{hs.description}</p>
@@ -2460,14 +2730,12 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
-          </motion.div>
-        )}
-      </AnimatePresence>
       <AddTaskModal 
         isOpen={isAddTaskModalOpen}
         onClose={() => setIsAddTaskModalOpen(false)}
         onAdd={addTask}
         defaultCategory={addTaskCategory}
+        defaultIsRevision={isRevisionPreferred}
         subjects={allSubjects}
       />
       <AddHabitModal
@@ -2507,6 +2775,9 @@ export default function App() {
           />
         )}
       </AnimatePresence>
-    </div>
-  );
+    </motion.div>
+  )}
+</AnimatePresence>
+</div>
+);
 }

@@ -5,6 +5,7 @@ import { HabitHeatMap } from './HabitStats';
 import { TiltCard } from './CinematicLayout';
 import { cn } from '../lib/utils';
 import { Habit } from '../types';
+import { format } from 'date-fns';
 
 export const HabitsGrid: React.FC<{ habits: Habit[], onMark: (habit: Habit) => void, onDelete: (id: string) => void }> = ({ habits, onMark, onDelete }) => {
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
@@ -25,7 +26,7 @@ export const HabitsGrid: React.FC<{ habits: Habit[], onMark: (habit: Habit) => v
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 px-2">
       {habits.map(habit => {
-        const today = new Date().toISOString().split('T')[0];
+        const today = format(new Date(), 'yyyy-MM-dd');
         const isDone = (habit.completedDates || []).includes(today);
         return (
           <div 

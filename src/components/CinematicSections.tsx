@@ -116,14 +116,18 @@ export const HeroSection: React.FC<{ onExplore: () => void }> = ({ onExplore }) 
       </div>
 
       {/* Hero Content */}
-      <div className="hero-content relative z-10 flex flex-col items-center gap-12 px-6 text-center">
-        <div className="flex flex-col gap-4 max-w-[95vw]">
-          <span className="text-md-primary font-mono text-sm uppercase tracking-[0.8em] font-black block opacity-80">
-            System Initialization
+      <div className="hero-content relative z-10 flex flex-col items-center gap-12 px-6 text-center w-full max-w-full overflow-hidden">
+        <div className="flex flex-col gap-4 w-full">
+          <span className="text-md-primary font-mono text-[10px] md:text-sm uppercase tracking-[0.4em] md:tracking-[0.8em] font-black block opacity-80">
+            BETA SYSTEM INITIALIZATION
           </span>
-          <h1 className="font-display tracking-tighter leading-[0.85] flex flex-wrap justify-center gap-x-4 text-[clamp(36px,10vw,88px)]">
-            {titleChars.map((char, i) => (
-              <span key={i} className={cn("char inline-block text-white", char === " " ? "w-4 md:w-8" : "")}>{char}</span>
+          <h1 className="font-display tracking-tighter leading-[0.85] flex flex-wrap justify-center content-center gap-x-2 md:gap-x-4 text-[clamp(44px,12vw,88px)] w-full">
+            {"DISCIPLINE BUILDS RANK".split(" ").map((word, wordIdx) => (
+              <span key={wordIdx} className="whitespace-nowrap inline-flex">
+                {word.split("").map((char, charIdx) => (
+                  <span key={charIdx} className="char inline-block text-white select-none">{char}</span>
+                ))}
+              </span>
             ))}
           </h1>
         </div>

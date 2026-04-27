@@ -29,7 +29,7 @@ const FALLBACK_COACH_RESPONSES = [
 export async function getAICoachResponse(userMessage: string, context?: any) {
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-1.5-flash",
       contents: userMessage,
       config: {
         systemInstruction: SYSTEM_INSTRUCTION + (context ? `\nUser Context: ${JSON.stringify(context)}` : ''),
@@ -65,7 +65,7 @@ const FALLBACK_HABITS = [
 export async function getAIQuote() {
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-1.5-flash",
       contents: "Give me a very short, punchy motivational quote (max 2 sentences) about productivity, focus, and crushing exams. Do not use quotes around it. Make it sound modern and intense.",
       config: {
         systemInstruction: "You are an AI generating motivational quotes for high-performing students."
@@ -81,7 +81,7 @@ export async function getAIQuote() {
 export async function getAIHabitSuggestions(context: any): Promise<{title: string, icon: string, description: string}[]> {
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-1.5-flash",
       contents: "Based on my profile, tasks, and habits, suggest 3 new powerful, achievable micro-habits that would improve my focus and discipline. Return ONLY a valid JSON array of objects with keys: 'title', 'icon' (a lucide-react icon name like 'Zap', 'Brain', 'BookOpen'), and 'description'.",
       config: {
         systemInstruction: SYSTEM_INSTRUCTION + (context ? `\nUser Context: ${JSON.stringify(context)}` : ''),
