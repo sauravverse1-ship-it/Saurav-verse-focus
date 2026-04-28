@@ -2,7 +2,7 @@ import { AtmosphereSheet } from './components/AtmosphereSheet';
 import { playAmbientSound, stopAmbientSound, setMasterVolume } from './services/audioService';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { db, auth, googleProvider, handleFirestoreError, OperationType } from './lib/firebase';
-import { signInWithPopup, onAuthStateChanged, User, signOut, signInAnonymously } from 'firebase/auth';
+import { signInWithPopup, onAuthStateChanged, User, signOut, signInAnonymously, getRedirectResult, signInWithRedirect } from 'firebase/auth';
 import { doc, setDoc, getDoc, collection, query, where, onSnapshot, addDoc, updateDoc, increment, orderBy, limit, deleteDoc } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
 import { WeeklyPlanner } from './components/WeeklyPlanner';
@@ -366,12 +366,8 @@ export default function App() {
     setExamPreferenceState(val);
     examPrefRef.current = val;
   };
-  const [isRevisionPreferred, setIsRevisionPreferred] = useState(false);
-  const [taskMode, setTaskMode] = useState<'standard' | 'revision'>('standard');
-
   const openAddTaskModal = (cat: 'study' | 'health' | 'personal' = 'study', revision = false) => {
     setAddTaskCategory(cat);
-    setIsRevisionPreferred(revision);
     setIsAddTaskModalOpen(true);
   };
   const [ambientSound, setAmbientSound] = useState<string>('none');
@@ -401,6 +397,9 @@ export default function App() {
   useEffect(() => {
     let unsubTasks: () => void = () => {};
     let unsubHabits: () => void = () => {};
+
+    // Handle potential redirect result first
+    getRedirectResult(auth).catch(console.error);
 
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       console.log("Auth state changed:", u?.uid || "null");
@@ -884,7 +883,7 @@ export default function App() {
         sessions: 0,
         expectedSessions: sessions,
         category,
-        isRevision: isRevision ?? isRevisionPreferred,
+        isRevision: isRevision ?? false,
         subjects: finalSubjects,
         priority: urgent ? 'high' : 'medium',
         createdAt: Date.now()
@@ -1220,6 +1219,9 @@ export default function App() {
             className="relative z-10"
           >
             <HeroSection onExplore={handleDashboardTransition} />
+            <div className="mt-4 px-6">
+                <DeveloperSection />
+            </div>
             <StorySection onExplore={handleDashboardTransition} />
             <HabitsSection
               habits={habits}
@@ -1924,19 +1926,7 @@ export default function App() {
                 <h3 className="text-2xl font-bold">Quantum Tasks</h3>
                 <div className="flex items-center gap-2">
                   <button 
-                    onClick={() => {
-                      playTick();
-                      setTaskMode(prev => prev === 'standard' ? 'revision' : 'standard');
-                    }}
-                    className={cn(
-                      "px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all",
-                      taskMode === 'revision' ? "bg-amber-500/20 border-amber-500/50 text-amber-500" : "bg-white/5 border-white/5 text-white/40"
-                    )}
-                  >
-                    {taskMode === 'revision' ? 'Revision Mode' : 'Standard Mode'}
-                  </button>
-                  <button 
-                    onClick={() => openAddTaskModal('study', taskMode === 'revision')}
+                    onClick={() => openAddTaskModal('study', false)}
                     className="p-3 bg-md-primary rounded-full text-md-on-primary shadow-lg shadow-md-primary/20 active:scale-95 transition-transform"
                   >
                     <Plus className="w-6 h-6" />
@@ -2027,7 +2017,6 @@ export default function App() {
                  {/* Reusing task card logic but in a dedicated view */}
                  {tasks
                     .filter(t => taskView === 'active' ? !t.completed : t.completed)
-                    .filter(t => taskMode === 'revision' ? !!t.isRevision : !t.isRevision)
                     .filter(t => selectedSubjectFilter === 'All' || (t.subjects && t.subjects.includes(selectedSubjectFilter)))
                     .map(task => {
                        const subject = task.subjects?.[0] ? allSubjects.find(s => s.id === task.subjects![0]) : null;
@@ -2736,7 +2725,7 @@ export default function App() {
         onClose={() => setIsAddTaskModalOpen(false)}
         onAdd={addTask}
         defaultCategory={addTaskCategory}
-        defaultIsRevision={isRevisionPreferred}
+        defaultIsRevision={false}
         subjects={allSubjects}
       />
       <AddHabitModal

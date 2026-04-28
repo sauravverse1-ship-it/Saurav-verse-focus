@@ -1,6 +1,5 @@
 import React, { useRef, useEffect } from 'react';
 import gsap from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
 import { motion } from 'motion/react';
 import { TiltCard } from './CinematicLayout';
@@ -8,7 +7,6 @@ import { Zap, Target, TrendingUp, Sparkles, ChevronDown } from 'lucide-react';
 import { playTick } from '../lib/audio';
 import { cn } from '../lib/utils';
 
-gsap.registerPlugin(ScrollTrigger);
 
 export const HeroSection: React.FC<{ onExplore: () => void }> = ({ onExplore }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -164,64 +162,7 @@ export const StorySection: React.FC<{ onExplore: () => void }> = ({ onExplore })
   const containerRef = useRef<HTMLDivElement>(null);
 
   useGSAP(() => {
-    const panels = gsap.utils.toArray('.panel');
-    const scrollTriggers: ScrollTrigger[] = [];
-    
-    panels.forEach((panel: any) => {
-      const st = ScrollTrigger.create({
-        trigger: panel,
-        start: 'top top',
-        pin: true,
-        pinSpacing: true, // safer than false
-      });
-      scrollTriggers.push(st);
-
-      const content = panel.querySelector('.panel-content');
-      if (content) {
-        gsap.from(content, {
-          y: 60,
-          opacity: 0,
-          duration: 1.2,
-          ease: 'power3.out',
-          scrollTrigger: {
-            trigger: panel,
-            start: 'top 60%',
-            toggleActions: 'play none none reverse'
-          }
-        });
-      }
-    });
-
-    const lineST = ScrollTrigger.create({
-      trigger: '.graph-section',
-      scrub: 1.5,
-      animation: gsap.from('.graph-line', {
-        strokeDashoffset: 1000,
-        strokeDasharray: 1000,
-        duration: 2.5,
-        ease: 'power2.inOut',
-      })
-    });
-    scrollTriggers.push(lineST);
-    
-    const pointsST = ScrollTrigger.create({
-      trigger: '.graph-section',
-      start: 'top 40%',
-      animation: gsap.from('.graph-point', {
-        scale: 0, 
-        opacity: 0,
-        ease: "back.out(2)",
-        stagger: 0.1,
-      })
-    });
-    scrollTriggers.push(pointsST);
-
-    // Refresh after setup
-    ScrollTrigger.refresh();
-
-    return () => {
-      scrollTriggers.forEach(t => t.kill());
-    };
+    // ScrollTrigger removed to prevent crashes
   }, { scope: containerRef });
 
   return (

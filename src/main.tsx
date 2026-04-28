@@ -3,9 +3,6 @@ import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 import gsap from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-
-gsap.registerPlugin(ScrollTrigger);
 
 // 1. Lag smoothing
 gsap.ticker.lagSmoothing(500, 33);
@@ -19,7 +16,6 @@ document.addEventListener('visibilitychange', () => {
 let resizeTimer: any;
 window.addEventListener('resize', () => {
   clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(() => ScrollTrigger.refresh(), 150);
 }, { passive: true });
 
 // 7. prefers-reduced-motion

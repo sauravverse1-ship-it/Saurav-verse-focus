@@ -20,6 +20,17 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onA
   const [isRevision, setIsRevision] = useState(defaultIsRevision);
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
 
+  React.useEffect(() => {
+    if (isOpen) {
+      setTitle('');
+      setCategory(defaultCategory || 'study');
+      setUrgent(false);
+      setSessions(1);
+      setIsRevision(defaultIsRevision);
+      setSelectedSubjects([]);
+    }
+  }, [isOpen, defaultIsRevision, defaultCategory]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;

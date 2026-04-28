@@ -1,13 +1,11 @@
 import React, { useRef, useState } from 'react';
 import gsap from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
 import { playTick } from '../lib/audio';
 import { cn } from '../lib/utils';
 import { Trash2, Edit } from 'lucide-react';
 import { HabitHeatMap } from './HabitStats';
 
-gsap.registerPlugin(ScrollTrigger);
 
 export const HabitsSection: React.FC<{ habits: any[], onAdd: () => void, onMark: (id: string) => void, onDelete?: (id: string) => void, compact?: boolean }> = ({ habits, onAdd, onMark, onDelete, compact = false }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -32,9 +30,8 @@ export const HabitsSection: React.FC<{ habits: any[], onAdd: () => void, onMark:
   };
 
   useGSAP(() => {
-    const tl = gsap.timeline({
-      scrollTrigger: { trigger: '#habits', start: 'top 75%' }
-    });
+    const tl = gsap.timeline();
+    // ScrollTrigger removed to prevent crashes
     
     tl.from('.habits-header', { y: 40, opacity: 0, duration: 1, ease: 'expo.out' }, 0)
       .from('.habits-stat', { y: 40, opacity: 0, stagger: 0.1, duration: 0.8, ease: 'power3.out' }, 0.2)

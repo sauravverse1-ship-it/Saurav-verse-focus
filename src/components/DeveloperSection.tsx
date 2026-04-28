@@ -1,28 +1,18 @@
 import React, { useRef } from 'react';
 import gsap from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
 import { motion } from 'motion/react';
 import { playTick } from '../lib/audio';
 import { ExternalLink, Github, Twitter, Mail, Send } from 'lucide-react';
 
-gsap.registerPlugin(ScrollTrigger);
-
 export const DeveloperSection: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useGSAP(() => {
-    const tl = gsap.timeline({
-      scrollTrigger: { 
-        trigger: '#developer-card-modern', 
-        start: 'top 95%',
-        toggleActions: 'play none none reverse'
-      }
-    });
-
-    tl.from('.modern-dev-card', { y: 60, opacity: 0, duration: 1.2, ease: 'expo.out' })
-      .from('.modern-avatar-frame', { scale: 0.5, rotate: -15, opacity: 0, duration: 1, ease: 'back.out(1.7)' }, '-=0.8')
-      .from('.modern-content > *', { x: -20, opacity: 0, stagger: 0.15, duration: 0.6 }, '-=0.6');
+    // ScrollTrigger removed to prevent crashes
+    gsap.from('.modern-dev-card', { y: 60, opacity: 0, duration: 1.2, ease: 'expo.out' });
+    gsap.from('.modern-avatar-frame', { scale: 0.5, rotate: -15, opacity: 0, duration: 1, ease: 'back.out(1.7)' });
+    gsap.from('.modern-content > *', { x: -20, opacity: 0, stagger: 0.15, duration: 0.6 });
   }, { scope: containerRef });
 
   return (
