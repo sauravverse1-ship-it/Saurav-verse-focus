@@ -435,6 +435,8 @@ export default function App() {
 
             if (data.examPreference) {
               setExamPreference(data.examPreference);
+            } else {
+              setExamPreference('None');
             }
 
             if (data.lastActiveDate !== today) {
@@ -1283,6 +1285,12 @@ export default function App() {
                 </div>
                 <div className="flex items-center gap-2">
                   <MagneticButton 
+                    onClick={() => setShowAchievements(true)}
+                    className="p-3 bg-white/5 text-on-surface-variant rounded-2xl border border-white/10"
+                  >
+                     <Award className="w-5 h-5" />
+                  </MagneticButton>
+                  <MagneticButton 
                     onClick={() => setActiveTab('profile')}
                     className="p-3 bg-white/5 text-on-surface-variant rounded-2xl border border-white/10"
                   >
@@ -1407,6 +1415,12 @@ export default function App() {
                       </div>
                     </section>
                     
+                    {/* Weekly Planner & Timetable */}
+                    <div className="grid grid-cols-1 gap-6 px-2">
+                        <WeeklyPlanner awardXP={awardXP} playSound={() => playTick()} />
+                        <Timetable playSound={() => playTick()} />
+                    </div>
+
                     {/* Stats Grid */}
                     <section className="space-y-4">
                       <h3 className="text-sm font-black uppercase tracking-widest opacity-40 px-2">Quantum Dashboard</h3>
@@ -2524,12 +2538,6 @@ export default function App() {
             {!profile?.settings?.isDopamineDetox && (
               <>
                 <NavButton active={activeTab === 'stats'} icon={Activity} label={t('analytics')} onClick={() => setActiveTab('stats')} />
-                <NavButton 
-                  active={showAchievements} 
-                  icon={Award} 
-                  label="Trophies" 
-                  onClick={() => setShowAchievements(true)} 
-                />
               </>
             )}
             <NavButton active={activeTab === 'profile'} icon={UserIcon} label={t('settings')} onClick={() => setActiveTab('profile')} />
