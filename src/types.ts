@@ -63,12 +63,14 @@ export interface UserProfile {
   settings: {
     workDuration: number;
     breakDuration: number;
+    longBreakDuration: number;
     ambientSound: 'rain' | 'lofi' | 'white' | 'none';
     notificationSound: 'default' | 'bell' | 'none';
     autoStartNextSession: boolean;
     language?: string;
     use24Hr?: boolean;
     startWeekSunday?: boolean;
+    isDopamineDetox?: boolean;
   };
 }
 

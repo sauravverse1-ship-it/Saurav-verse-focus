@@ -176,18 +176,6 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onA
                       <Zap className={cn("w-5 h-5", urgent && "fill-red-500")} />
                       <span>Priority Alpha</span>
                     </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setIsRevision(!isRevision)}
-                      className={cn(
-                        "flex-1 h-14 rounded-3xl border flex items-center justify-center gap-3 transition-all font-black text-xs uppercase tracking-[0.2em] shadow-inner",
-                        isRevision ? "bg-amber-500/10 border-amber-500/40 text-amber-500 shadow-[0_0_30px_rgba(245,158,11,0.2)]" : "bg-white/5 border-white/5 text-white/30 hover:bg-white/10"
-                      )}
-                    >
-                      <RotateCcw className={cn("w-5 h-5", isRevision && "text-amber-500")} />
-                      <span>Revision Mode</span>
-                    </button>
                   </div>
 
                   <div className="bg-white/5 border border-white/5 p-6 rounded-[2.5rem] space-y-6">

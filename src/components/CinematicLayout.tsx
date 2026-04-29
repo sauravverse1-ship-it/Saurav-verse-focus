@@ -12,15 +12,22 @@ interface TiltCardProps {
 export const TiltCard: React.FC<TiltCardProps> = ({ children, className, intensity = 15 }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const shineRef = useRef<HTMLDivElement>(null);
+  const rect = useRef<DOMRect | null>(null);
   const rafId = useRef<number | null>(null);
 
+  const handleMouseEnter = () => {
+    if (cardRef.current) {
+        rect.current = cardRef.current.getBoundingClientRect();
+    }
+  };
+
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!cardRef.current) return;
-    const { left, top, width, height } = cardRef.current.getBoundingClientRect();
+    if (!cardRef.current || !rect.current) return;
     
     if (rafId.current) cancelAnimationFrame(rafId.current);
     
     rafId.current = requestAnimationFrame(() => {
+      const { left, top, width, height } = rect.current!;
       const x = e.clientX - left;
       const y = e.clientY - top;
       
@@ -67,6 +74,7 @@ export const TiltCard: React.FC<TiltCardProps> = ({ children, className, intensi
   return (
     <div 
       className="perspective-1000 w-full h-full interactive"
+      onMouseEnter={handleMouseEnter}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
     >

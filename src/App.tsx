@@ -7,11 +7,12 @@ import { doc, setDoc, getDoc, collection, query, where, onSnapshot, addDoc, upda
 import { motion, AnimatePresence } from 'motion/react';
 import { WeeklyPlanner } from './components/WeeklyPlanner';
 import { Timetable } from './components/Timetable';
+import { FireBreathingScene } from './components/FireBreathingScene';
 import { 
   Play, Pause, RotateCcw, CheckCircle, Home, Timer, BarChart2, User as UserIcon, 
   Plus, Settings, Volume2, VolumeX, Maximize2, Minimize2, Award, Zap, 
   CloudRain, Coffee, Wind, LogOut, Download, BookOpen, Heart, Activity, Calendar, 
-  Trash2, Edit, ChevronRight, Hash, Clock, Brain, Target, Flame, Sparkles, MessageSquare, Battery, Droplets, Moon, Utensils, ShieldCheck, ThumbsUp, ThumbsDown, SkipForward, Star, Music, AlertCircle, Trophy
+  Trash2, Edit, ChevronRight, Hash, Clock, Brain, Target, Flame, Sparkles, MessageSquare, Battery, Droplets, Moon, Utensils, ShieldCheck, ShieldAlert, ThumbsUp, ThumbsDown, SkipForward, Star, Music, AlertCircle, Trophy
 } from 'lucide-react';
 import { getAICoachResponse, getAIQuote, getAIHabitSuggestions } from './services/geminiService';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
@@ -40,6 +41,7 @@ import { playTick, playWhoosh, playBell } from './lib/audio';
 import { cn } from './lib/utils';
 import { UserProfile, Task, Habit, FocusSession, SessionLog } from './types';
 import { AnalyticsView } from './components/AnalyticsView';
+import { PochitaPet } from './components/PochitaPet';
 import gsap from 'gsap';
 
 // Constants moved to types.ts or used directly
@@ -92,17 +94,22 @@ const AMBIENT_CATEGORIES = [
 const AMBIENT_DATA: AmbientTrack[] = [
   // Lofi
   { id: 'lofi', label: 'Lofi Beats', category: 'lofi', icon: 'Music' },
-  { id: 'chillhop', label: 'Chillhop', category: 'lofi', icon: 'Headphones' },
+  { id: 'chillhop', label: 'Total Concentration', category: 'lofi', icon: 'Headphones' },
+  { id: 'thunder-breathing', label: "Zenitsu's Clap", category: 'lofi', icon: 'Zap' },
+  { id: 'lofi-study', label: 'Lofi Study', category: 'lofi', icon: 'Book' },
   // Focus
-  { id: 'brown-noise', label: 'Brown Noise', category: 'focus', icon: 'Waves' },
-  { id: 'deep-focus', label: 'Deep Focus (Binaural)', category: 'focus', icon: 'Brain' },
-  { id: 'white-noise', label: 'White Noise', category: 'focus', icon: 'Wind' },
+  { id: 'chainsaw-engine', label: 'Chainsaw Engine', category: 'focus', icon: 'Activity' },
+  { id: 'deep-focus', label: 'Deep Focus', category: 'focus', icon: 'Brain' },
+  { id: 'white-noise', label: 'Hollow Echo', category: 'focus', icon: 'Wind' },
+  { id: 'binaural-beats', label: 'Binaural', category: 'focus', icon: 'Headphones' },
   // Nature
   { id: 'rain', label: 'Heavy Rain', category: 'nature', icon: 'CloudRain', url: 'https://actions.google.com/sounds/v1/water/rain_on_roof.ogg' },
-  { id: 'forest', label: 'Morning Forest', category: 'nature', icon: 'Activity', url: 'https://actions.google.com/sounds/v1/ambiences/morning_forest.ogg' },
-  { id: 'waves', label: 'Ocean Waves', category: 'nature', icon: 'Droplets', url: 'https://actions.google.com/sounds/v1/water/waves_clashing.ogg' },
+  { id: 'forest', label: 'Wisteria Forest', category: 'nature', icon: 'Activity', url: 'https://actions.google.com/sounds/v1/ambiences/morning_forest.ogg' },
+  { id: 'waves', label: 'Water Breathing', category: 'nature', icon: 'Droplets', url: 'https://actions.google.com/sounds/v1/water/waves_clashing.ogg' },
+  { id: 'fire', label: 'Flame Breathing', category: 'nature', icon: 'Flame', url: 'https://actions.google.com/sounds/v1/ambiences/fire_crackling.ogg' },
   // Atmosphere
-  { id: 'cafe', label: 'Café Ambience', category: 'atmosphere', icon: 'Coffee' },
+  { id: 'cafe', label: 'Public Safety', category: 'atmosphere', icon: 'Coffee' },
+  { id: 'library', label: 'Zen Library', category: 'atmosphere', icon: 'BookOpen' },
 ];
 
 const AMBIENT_TRACKS = AMBIENT_DATA.reduce((acc, track) => {
@@ -245,6 +252,7 @@ export default function App() {
 
   // Subjects combination
   const allSubjects = [...DEFAULT_SUBJECTS, ...customSubjects];
+  const [showIntentPrompt, setShowIntentPrompt] = useState(false);
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [isAtmosphereSheetOpen, setIsAtmosphereSheetOpen] = useState(false);
   const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
@@ -267,6 +275,22 @@ export default function App() {
   const orbitDotRef = useRef<HTMLDivElement>(null);
   const orbitAngleRef = useRef(-60);
   const orbitSpeedRef = useRef(0.18);
+  const containerSizeRef = useRef({ width: 0, height: 0 });
+
+  useEffect(() => {
+    const updateSize = () => {
+      if (ringContainerRef.current) {
+        const { width, height } = ringContainerRef.current.getBoundingClientRect();
+        containerSizeRef.current = { width, height };
+      }
+    };
+    updateSize();
+    window.addEventListener('resize', updateSize);
+    return () => window.removeEventListener('resize', updateSize);
+  }, []);
+  
+  const totalTime = mode === 'study' ? (profile?.settings?.workDuration || 25) * 60 : (profile?.settings?.breakDuration || 5) * 60;
+  const pomodoroProgress = Math.min(100, Math.max(0, ((totalTime - timeLeft) / totalTime) * 100));
 
   useEffect(() => {
     orbitSpeedRef.current = isRunning ? 0.35 : 0.18;
@@ -274,16 +298,17 @@ export default function App() {
 
   useEffect(() => {
     const ticker = () => {
-      if (!orbitDotRef.current || !ringContainerRef.current) return;
-      const b = ringContainerRef.current.getBoundingClientRect();
-      const cx = b.width / 2;
-      const cy = b.height / 2;
-      const rad = b.width * 0.45;
+      if (!orbitDotRef.current || !containerSizeRef.current.width) return;
+      const { width, height } = containerSizeRef.current;
+      const cx = width / 2;
+      const cy = height / 2;
+      const rad = width * 0.45;
       orbitAngleRef.current += orbitSpeedRef.current;
       const a = (orbitAngleRef.current * Math.PI) / 180;
       gsap.set(orbitDotRef.current, {
         left: cx + rad * Math.cos(a),
-        top: cy + rad * Math.sin(a)
+        top: cy + rad * Math.sin(a),
+        force3D: true
       });
     };
     gsap.ticker.add(ticker);
@@ -486,8 +511,9 @@ export default function App() {
                 strongChapters: []
               },
               settings: {
-                workDuration: 50,
-                breakDuration: 10,
+                workDuration: 25,
+                breakDuration: 5,
+                longBreakDuration: 15,
                 ambientSound: 'none',
                 notificationSound: 'default',
                 autoStartNextSession: false
@@ -553,6 +579,16 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFocusMode) {
+        setIsFocusMode(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFocusMode]);
+
   const [currentSessionSeconds, setCurrentSessionSeconds] = useState(0);
   const [taskView, setTaskView] = useState<'active' | 'completed'>('active');
 
@@ -565,7 +601,7 @@ export default function App() {
     }
   };
 
-  const totalFocusToday = useMemo(() => {
+  const totalFocusSecondsToday = useMemo(() => {
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     
@@ -573,17 +609,16 @@ export default function App() {
       .filter(log => log.timestamp >= startOfToday)
       .reduce((acc, log) => acc + log.duration, 0);
       
-    return Math.floor((todaySecondsFromLogs + currentSessionSeconds) / 60);
+    return todaySecondsFromLogs + currentSessionSeconds;
   }, [sessionLogs, currentSessionSeconds]);
 
   // --- Timer Logic ---
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: any;
     if (isRunning && timeLeft > 0) {
       interval = setInterval(() => {
         setTimeLeft(t => {
           if (t <= 1) {
-            clearInterval(interval);
             return 0;
           }
           return t - 1;
@@ -592,11 +627,19 @@ export default function App() {
           setCurrentSessionSeconds(s => s + 1);
         }
       }, 1000);
-    } else if (timeLeft === 0 && isRunning) {
+    } 
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isRunning, mode]);
+
+  // Handle timer completion separately
+  useEffect(() => {
+    if (timeLeft === 0 && isRunning && !isCompletingSessionRef.current) {
       handleTimerComplete();
     }
-    return () => clearInterval(interval);
-  }, [isRunning, timeLeft, mode]);
+  }, [timeLeft, isRunning]);
 
   // Sync focus time to profile occasionally
   useEffect(() => {
@@ -741,9 +784,10 @@ export default function App() {
 
         // Auto-cycle logic
         setTimeout(() => {
-          if ((sessionCount + 1) % 4 === 0) {
+          const isLongBreak = (sessionCount + 1) % 4 === 0;
+          if (isLongBreak) {
             setMode('longBreak');
-            setTimeLeft((profile?.settings?.breakDuration || 15) * 60 + 5 * 60);
+            setTimeLeft((profile?.settings?.longBreakDuration || 15) * 60);
           } else {
             setMode('shortBreak');
             setTimeLeft((profile?.settings?.breakDuration || 5) * 60);
@@ -752,7 +796,7 @@ export default function App() {
             setIsRunning(true);
           }
           isCompletingSessionRef.current = false;
-        }, 5000);
+        }, 3000);
 
       } else {
         // Break Completed
@@ -762,7 +806,7 @@ export default function App() {
         }
 
         setMode('study');
-        setTimeLeft(profile?.settings?.workDuration ? profile.settings.workDuration * 60 : 50 * 60);
+        setTimeLeft((profile?.settings?.workDuration || 25) * 60);
         
         if (user && profile) {
           try {
@@ -790,16 +834,16 @@ export default function App() {
 
   const toggleTimer = () => {
     if (!isRunning) {
-      if (mode === 'study' && !sessionIntention && !isFocusMode) {
+      if (mode === 'study' && !sessionIntention) {
         setShowIntentionInput(true);
         return;
       }
-      setSessionStartTime(Date.now());
+      playWhoosh();
+      setSessionStartTime(Date.now() - (currentSessionSeconds * 1000));
       setIsRunning(true);
-      playTick();
     } else {
       setIsRunning(false);
-      playTick();
+      playWhoosh();
     }
   };
 
@@ -810,9 +854,9 @@ export default function App() {
 
   const calculateFocusScore = () => {
     if (!sessionStartTime) return 0;
-    const durationMinutes = (Date.now() - sessionStartTime) / (1000 * 60);
-    const expectedMinutes = mode === 'study' ? (profile?.settings?.workDuration || 50) : (profile?.settings?.breakDuration || 10);
-    const timeRatio = Math.min(durationMinutes / expectedMinutes, 1);
+    const durationSeconds = (Date.now() - sessionStartTime) / 1000;
+    const expectedSeconds = totalTime;
+    const timeRatio = Math.min(durationSeconds / expectedSeconds, 1);
     const score = Math.max(0, Math.round((timeRatio * 100) - (distractions * 5)));
     return score;
   };
@@ -837,9 +881,20 @@ export default function App() {
         
         if (user) {
           const userPath = `users/${user.uid}`;
+          const sessionsPath = `${userPath}/sessions`;
           try {
             await updateDoc(doc(db, userPath), {
               totalFocusSeconds: increment(recordedSeconds)
+            });
+            // Also sync as a separate session log in Firestore
+            await addDoc(collection(db, sessionsPath), {
+              userId: user.uid,
+              duration: recordedSeconds,
+              timestamp: Date.now(),
+              type: 'focus',
+              missionTitle: sessionIntention || 'Focus Session',
+              subject: selectedTaskId ? tasks.find(t => t.id === selectedTaskId)?.subjects?.[0] : null,
+              completed: false
             });
           } catch (e) {
             handleFirestoreError(e, OperationType.UPDATE, userPath);
@@ -847,7 +902,8 @@ export default function App() {
         }
     }
     setIsRunning(false);
-    setTimeLeft(mode === 'study' ? (profile?.settings?.workDuration || 50) * 60 : (profile?.settings?.breakDuration || 10) * 60);
+    const defaultTime = mode === 'study' ? 25 : (mode === 'shortBreak' ? 5 : 15);
+    setTimeLeft((profile?.settings?.[mode === 'study' ? 'workDuration' : (mode === 'shortBreak' ? 'breakDuration' : 'longBreakDuration')] || defaultTime) * 60);
     setCurrentSessionSeconds(0);
   };
 
@@ -868,13 +924,37 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isRunning, mode, selectedTaskId, tasks, profile]);
 
-  // --- Task Actions ---
+  const installMission = (task: any) => {
+    if (!task) {
+      setSelectedTaskId(null);
+      setSessionIntention('');
+      return;
+    }
+    
+    // Check if we are toggling off
+    if (selectedTaskId === task.id) {
+      setSelectedTaskId(null);
+      setSessionIntention('');
+      return;
+    }
+
+    playWhoosh();
+    setSelectedTaskId(task.id);
+    setSessionIntention(task.title);
+    setActiveTab('timer');
+    
+    // Add a visual 'ping' or feedback if needed
+    if (ringContainerRef.current) {
+      ringContainerRef.current.classList.add('animate-pulse');
+      setTimeout(() => ringContainerRef.current?.classList.remove('animate-pulse'), 1000);
+    }
+  };
   const addTask = async (title: string, category: 'study' | 'personal' | 'health' = 'study', urgent: boolean = false, sessions: number = 1, subjectId?: string | string[], isRevision?: boolean) => {
     if (!user || !title.trim()) return;
     const finalSubjects = Array.isArray(subjectId) ? subjectId : (subjectId ? [subjectId] : []);
     const tasksPath = `users/${user.uid}/tasks`;
     try {
-      await addDoc(collection(db, tasksPath), {
+      const docRef = await addDoc(collection(db, tasksPath), {
         userId: user.uid,
         title,
         description: '',
@@ -888,6 +968,8 @@ export default function App() {
         priority: urgent ? 'high' : 'medium',
         createdAt: Date.now()
       });
+      
+      installMission({ id: docRef.id, title });
     } catch (e) {
       handleFirestoreError(e, OperationType.CREATE, tasksPath);
     }
@@ -1316,7 +1398,6 @@ export default function App() {
                     exit={{ opacity: 0, x: 20 }}
                     className="space-y-8"
                   >
-                    {/* AI Quick Insights */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4">
                       <div className="h-32">
                         <TiltCard intensity={5} className="w-full h-full">
@@ -1338,12 +1419,14 @@ export default function App() {
                       <div className="h-32">
                         <TiltCard intensity={5} className="w-full h-full">
                           <div className="w-full h-full glass p-4 flex items-center gap-4 text-left rounded-[2rem]">
-                            <div className="p-3 bg-pink-500/20 rounded-2xl">
-                              <Flame className="w-6 h-6 text-pink-400" />
+                            <div className="p-3 bg-orange-500/20 rounded-2xl">
+                              <Clock className="w-6 h-6 text-orange-400" />
                             </div>
                             <div>
-                              <p className="text-[10px] font-black uppercase tracking-widest text-pink-400">Current Streak</p>
-                              <p className="text-lg font-black tracking-tighter">{streak} DAYS</p>
+                              <p className="text-[10px] font-black uppercase tracking-widest text-orange-400">Today's Grind</p>
+                              <p className="text-lg font-black tracking-tighter">
+                                {Math.floor(totalFocusSecondsToday / 3600)}H {Math.floor((totalFocusSecondsToday % 3600) / 60)}M {totalFocusSecondsToday % 60}S
+                              </p>
                             </div>
                           </div>
                         </TiltCard>
@@ -1433,8 +1516,12 @@ export default function App() {
                         currentTask={selectedTaskId}
                         tasks={tasks}
                         onToggleTimer={() => setIsRunning(!isRunning)}
-                        onResetTimer={() => setTimeLeft(mode === 'study' ? (profile?.settings?.workDuration || 50) * 60 : (profile?.settings?.breakDuration || 5) * 60)}
+                        onResetTimer={() => setTimeLeft(mode === 'study' ? (profile?.settings?.workDuration || 50) * 60 : (profile?.settings?.breakDuration || 10) * 60)}
                         formatTime={formatTime}
+                        sessionIntention={sessionIntention}
+                        setSessionIntention={setSessionIntention}
+                        distractions={distractions}
+                        onAddDistraction={() => setDistractions(prev => prev + 1)}
                       />
                     </section>
 
@@ -1613,12 +1700,9 @@ export default function App() {
                           return (
                             <motion.div 
                               key={task.id}
-                              layout
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              onClick={() => setSelectedTaskId(task.id === selectedTaskId ? null : task.id)}
+                              onClick={() => installMission(task)}
                               className={cn(
-                                "glass-card group flex items-center justify-between p-5 rounded-[2rem] border transition-colors cursor-pointer",
+                                "glass-card group flex items-center justify-between p-4 md:p-5 rounded-[1.5rem] md:rounded-[2rem] border transition-colors cursor-pointer",
                                 task.id === selectedTaskId ? "border-primary shadow-[0_0_20px_rgba(59,130,246,0.2)] bg-primary/5" : "border-white/5 hover:border-white/10"
                               )}
                             >
@@ -1681,170 +1765,296 @@ export default function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
+              className="relative flex flex-col items-center pt-2 md:pt-4 px-4 w-full h-full max-w-lg mx-auto"
             >
-              {/* Profile Header removed because it's duplicate */}
-
+              <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
+                <FireBreathingScene isRunning={isRunning} intensity={mode === 'study' ? 0.9 : 0.2} />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#05070d] via-transparent to-[#05070d] opacity-90" />
+              </div>
+              
               {/* Mode Tabs */}
               {!isFocusMode && (
-                <div id="t-mode-tabs">
-                  <div 
-                    className={cn("mode-tab", mode === 'study' && "active")}
-                    onClick={() => { setMode('study'); setTimeLeft((profile?.settings?.workDuration || 25) * 60); setIsRunning(false); }}
+                <div id="t-mode-tabs" className="relative z-[60] flex gap-2 md:gap-4 p-1.5 md:p-2 bg-white/5 rounded-2xl border border-white/10 mb-8 md:mb-12 backdrop-blur-md">
+                  <button 
+                    className={cn(
+                        "px-6 md:px-10 py-2 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all",
+                        mode === 'study' ? "bg-orange-500 text-white shadow-[0_0_20px_rgba(234,88,12,0.4)]" : "text-white/40 hover:text-white"
+                    )}
+                    onClick={() => { playWhoosh(); setMode('study'); setTimeLeft((profile?.settings?.workDuration || 25) * 60); setIsRunning(false); setSessionStartTime(null); setCurrentSessionSeconds(0); setSessionIntention(''); }}
                   >
                     <span>FOCUS</span>
-                  </div>
-                  <div 
-                    className={cn("mode-tab", (mode === 'shortBreak' || mode === 'longBreak') && "active")}
-                    onClick={() => { setMode('shortBreak'); setTimeLeft((profile?.settings?.breakDuration || 5) * 60); setIsRunning(false); }}
+                  </button>
+                  <button 
+                    className={cn(
+                        "px-6 md:px-10 py-2 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all",
+                        (mode === 'shortBreak' || mode === 'longBreak') ? "bg-blue-500 text-white shadow-[0_0_20px_rgba(59,130,246,0.4)]" : "text-white/40 hover:text-white"
+                    )}
+                    onClick={() => { playWhoosh(); setMode('shortBreak'); setTimeLeft((profile?.settings?.breakDuration || 5) * 60); setIsRunning(false); setSessionStartTime(null); setCurrentSessionSeconds(0); }}
                   >
-                    <span>BREAK</span>
-                  </div>
+                    <span>REST</span>
+                  </button>
                 </div>
               )}
 
+              {/* Status Badge */}
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                className="relative z-10 mb-8 px-5 py-2 bg-white/5 border border-white/10 rounded-full backdrop-blur-md"
+              >
+                <div className="flex items-center gap-3">
+                    {mode === 'study' ? <Flame className="w-4 h-4 text-orange-500 shrink-0" /> : <Wind className="w-4 h-4 text-blue-400 shrink-0" />}
+                    <span className={cn(
+                        "text-[10px] md:text-xs font-black italic uppercase tracking-widest truncate",
+                        mode === 'study' ? "text-orange-500" : "text-blue-400"
+                    )}>
+                        {mode === 'study' ? 'IGNITION STATUS: ACTIVE' : 'RECOVERY MODE: STEADY'}
+                    </span>
+                </div>
+              </motion.div>
+
               {/* Timer Ring Area */}
-              <div id="t-ring-area" className={cn(isFocusMode && "justify-center -mt-12 scale-110")}>
-                <div id="ring-container" ref={ringContainerRef} className={cn(isFocusMode && "scale-110")}>
-                  <svg id="ring-svg" viewBox="0 0 320 320">
+                <div id="t-ring-area" className={cn("relative z-10 flex flex-col items-center justify-center w-full mb-12", isFocusMode && "scale-105 my-8")}>
+                <div id="ring-container" ref={ringContainerRef} className={cn("relative flex items-center justify-center p-2 md:p-8 rounded-full")}>
+                  {/* Glowing background behind ring */}
+                  <div className="absolute inset-0 rounded-full bg-orange-500/5 blur-3xl" />
+                  
+                  <svg id="ring-svg" viewBox="0 0 320 320" className="relative z-10 w-60 h-60 min-[400px]:w-64 min-[400px]:h-64 md:w-80 md:h-80 overflow-visible drop-shadow-[0_0_40px_rgba(234,88,12,0.3)]">
                     <defs>
-                      <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#00ffe0"/>
-                        <stop offset="100%" stopColor="#7b5fe8"/>
+                      <linearGradient id="ringGradAnime" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor={mode === 'study' ? '#ea580c' : '#3b82f6'}/>
+                        <stop offset="100%" stopColor={mode === 'study' ? '#fde047' : '#60a5fa'}/>
                       </linearGradient>
                     </defs>
-                    <circle className="ring-deco animate-spin-slow" cx="160" cy="160" r="152"/>
-                    <circle className="ring-track" cx="160" cy="160" r="144" transform="rotate(-90,160,160)"/>
+                    {/* Ring background circle decoration */}
                     <motion.circle 
-                      className="ring-prog" 
+                        className={cn("ring-deco fill-none stroke-[8] md:stroke-[10] origin-center opacity-30")} 
+                        cx="160" cy="160" r="150"
+                        stroke={mode === 'study' ? '#ea580c' : '#3b82f6'}
+                        style={{ transformBox: 'fill-box' }}
+                        animate={isRunning ? { rotate: 360 } : { rotate: 0 }}
+                        transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+                    />
+                    {/* Progress track */}
+                    <circle className="ring-track opacity-5 fill-none stroke-[8] md:stroke-[10] origin-center" cx="160" cy="160" r="144" transform="rotate(-90,160,160)" stroke="white" style={{ transformBox: 'fill-box' }} />
+                    {/* Animated Progress circle */}
+                    <motion.circle 
+                      className="ring-prog fill-none stroke-[10] md:stroke-[12] origin-center" 
                       cx="160" cy="160" r="144"
                       transform="rotate(-90,160,160)"
+                      style={{ transformBox: 'fill-box' }}
                       strokeDasharray="905"
+                      stroke="url(#ringGradAnime)"
+                      strokeLinecap="round"
                       animate={{ strokeDashoffset: 905 * (1 - timeLeft / (mode === 'study' ? (profile?.settings?.workDuration || 25) * 60 : (profile?.settings?.breakDuration || 5) * 60)) }}
+                    />
+                    {/* Water Breathing Progress Frame */}
+                    <motion.circle 
+                      cx="160" cy="160" r="150"
+                      className="fill-none animate-water-swirl origin-center"
+                      stroke="#3b82f6"
+                      strokeWidth="4"
+                      strokeDasharray="942"
+                      strokeDashoffset={942 * (1 - pomodoroProgress / 100)}
+                      strokeLinecap="round"
+                      style={{ opacity: 0.6, transform: 'rotate(-90deg)', transformBox: 'fill-box' }}
+                    />
+                    {/* Inner Water Ring */}
+                    <motion.circle 
+                      cx="160" cy="160" r="150"
+                      className="fill-none opacity-20 origin-center"
+                      stroke="#60a5fa"
+                      strokeWidth="2"
+                      strokeDasharray="10 20"
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+                      style={{ transformBox: 'fill-box' }}
                     />
                   </svg>
 
-                  <div id="orbit-dot" ref={orbitDotRef}></div>
-
-                  <div id="ring-center">
-                    <div id="t-time">{formatTime(timeLeft)}</div>
-                    <div id="t-mode-label" style={{ color: mode === 'study' ? 'var(--neon)' : 'var(--violet)' }}>
-                      {mode === 'study' ? 'FOCUS' : 'REST'}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <div id="t-time" className="text-6xl md:text-7xl font-black italic tracking-tighter drop-shadow-lg leading-none select-none text-white tabular-nums">
+                        {formatTime(timeLeft)}
                     </div>
+                    <div id="t-mode-label" className="mt-1 md:mt-2 text-[10px] md:text-sm font-black uppercase tracking-[0.4em] opacity-40 text-white">
+                      {mode === 'study' ? 'IGNITE' : 'COOL'}
+                    </div>
+                    {sessionIntention && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: 30 }}
+                        animate={{ 
+                          opacity: 1, 
+                          y: [0, -8, 0],
+                        }}
+                        transition={{
+                          y: {
+                            duration: 3,
+                            repeat: Infinity,
+                            ease: "easeInOut"
+                          }
+                        }}
+                        className="fixed bottom-[32%] left-1/2 -translate-x-1/2 pointer-events-none z-[100] flex flex-col items-center gap-2 w-full max-w-[280px]"
+                      >
+                         <div className="px-5 py-2.5 bg-orange-600/90 backdrop-blur-xl rounded-2xl border-2 border-orange-400/50 shadow-[0_10px_30px_rgba(234,88,12,0.5)] flex items-center gap-3">
+                           <div className="relative shrink-0">
+                             <Target className="w-5 h-5 text-white animate-pulse" />
+                             <div className="absolute inset-0 bg-white blur-md opacity-30 animate-pulse" />
+                           </div>
+                           <span className="text-[10px] md:text-xs font-black uppercase tracking-[0.1em] text-white italic whitespace-nowrap overflow-hidden text-ellipsis">MISSION: {sessionIntention}</span>
+                         </div>
+                         <div className="flex items-center gap-2 opacity-60">
+                           <span className="text-[8px] font-black uppercase tracking-[0.3em] text-white/80 animate-pulse">DON'T STOP UNTIL COMPLETE</span>
+                         </div>
+                      </motion.div>
+                    )}
                     {isFocusMode && sessionIntention ? (
-                      <div className="focus-intention animate-pulse text-white/80 text-[10px] uppercase font-black tracking-widest mt-4">
-                        Current Task: {sessionIntention}
+                      <div className="focus-intention animate-pulse text-primary text-[8px] md:text-[10px] uppercase font-black tracking-widest mt-4 md:mt-6 bg-primary/10 px-4 py-1 rounded-full border border-primary/20">
+                        Stay Focused
                       </div>
                     ) : (
-                      <div id="t-session-label">Set {(sessionCount % 4) + 1} / 4</div>
+                      <div id="t-session-label" className="mt-2 md:mt-4 font-black italic opacity-60 text-[10px] md:text-xs text-white">
+                        Technique Stage {(sessionCount % 4) + 1} / 4
+                      </div>
                     )}
                   </div>
+                  {/* Local anime floating elements */}
+                  {isRunning && (
+                    <div className="pointer-events-none absolute inset-0 overflow-visible z-20">
+                      <motion.div 
+                          initial={{ opacity: 0, scale: 0.5, x: 20 }}
+                          animate={{ opacity: 1, scale: 1, x: 0 }}
+                          className="absolute -top-2 -right-2 md:-top-6 md:-right-6 p-2 md:p-3 bg-orange-600 text-white text-[10px] md:text-sm font-black italic rounded-xl border-2 border-orange-400 rotate-12 shadow-2xl"
+                      >FOCUS!!</motion.div>
+                      <motion.div 
+                          initial={{ opacity: 0, scale: 0.5, x: -20 }}
+                          animate={{ opacity: 1, scale: 1, x: 0 }}
+                          transition={{ delay: 0.2 }}
+                          className="absolute -bottom-2 -left-2 md:-bottom-6 md:-left-6 p-2 md:p-3 bg-blue-600 text-white text-[10px] md:text-sm font-black italic rounded-xl border-2 border-blue-400 -rotate-12 shadow-2xl"
+                      >GRIND!!</motion.div>
+                    </div>
+                  )}
                 </div>
 
-                <div id="cycle-dots">
+                <div className="flex gap-2 justify-center mt-8 p-3 bg-white/5 rounded-3xl border border-white/5 backdrop-blur-sm">
                   {[0, 1, 2, 3].map(i => (
-                    <div 
+                    <motion.div 
                       key={i} 
                       className={cn(
-                        "c-dot", 
-                        (sessionCount % 4) > i && "done",
-                        (sessionCount % 4) === i && isRunning && "active"
+                        "w-4 h-4 rounded-lg flex items-center justify-center transition-all border", 
+                        (sessionCount % 4) > i ? "bg-orange-500 border-orange-400 rotate-45" : (sessionCount % 4) === i && isRunning ? "border-orange-400 bg-orange-400/20" : "border-white/10 bg-white/5"
                       )} 
+                      animate={isRunning && (sessionCount % 4) === i ? { scale: [1, 1.2, 1], rotate: 45 } : {}}
                     />
                   ))}
                 </div>
 
-                {/* Session context - can stay or hide? User wants "only time and the task I am working on". I'll show intensity/session labels but maybe smaller/hidden if needed. Actually I'll hide goal area and atmosphere. */}
                 {!isFocusMode && (
-                  <div id="session-ctx">
-                    <div className="ctx-item streak">🔥 <span>{streak}</span></div>
-                    <div className="ctx-sep">·</div>
-                    <div className="ctx-item multi">
-                      ⚡ ×<span>{(1 + (profile?.level || 1) * 0.1).toFixed(1)}</span>
+                  <div className="flex justify-center gap-6 mt-6">
+                    <div className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-2xl border border-white/10">
+                        <Flame className="w-4 h-4 text-orange-500" />
+                        <span className="text-xl font-black italic text-white">{streak}</span>
+                    </div>
+                    <div className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-2xl border border-white/10">
+                        <Zap className="w-4 h-4 text-blue-400" />
+                        <span className="text-xl font-black italic text-white">×{(1 + (profile?.level || 1) * 0.1).toFixed(1)}</span>
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Goal Area */}
+              {/* Goals & Atmosphere Section */}
               {!isFocusMode && (
-                <div id="goal-area">
-                  <div id="goal-header">
-                    <span id="goal-label">DAILY GOAL</span>
-                    <span id="goal-val">{totalFocusToday || 0} / 200m</span>
+                <div className="w-full max-w-sm flex flex-col gap-4 px-2 z-10 mb-10">
+                  <div className="bg-white/5 p-4 rounded-3xl border border-white/10 backdrop-blur-sm">
+                    <div className="flex justify-between mb-3 text-[10px] font-black uppercase tracking-widest">
+                      <span className="opacity-40 text-white">Focus Reservoir</span>
+                      <span className="text-orange-500">{Math.floor(totalFocusSecondsToday / 60) || 0} / 200m</span>
+                    </div>
+                    <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
+                      <motion.div 
+                        className="h-full bg-gradient-to-r from-orange-600 to-yellow-400" 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${Math.min(100, ((Math.floor(totalFocusSecondsToday / 60) || 0) / 200) * 100)}%` }}
+                      />
+                    </div>
                   </div>
-                  <div id="goal-bar">
-                    <motion.div 
-                      id="goal-fill" 
-                      initial={{ width: 0 }}
-                      animate={{ width: `${Math.min(100, ((totalFocusToday || 0) / 200) * 100)}%` }}
-                    />
-                  </div>
+
+                  <button 
+                      onClick={() => setIsAtmosphereSheetOpen(true)}
+                      className="flex items-center justify-center gap-3 p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-3xl transition-all active:scale-95 group backdrop-blur-md"
+                  >
+                    <Music className="w-4 h-4 text-white group-hover:text-primary transition-colors" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white/60 group-hover:text-white">
+                      {activeAmbientTrack ? activeAmbientTrack.label : 'Atmosphere Engine'}
+                    </span>
+                  </button>
                 </div>
               )}
 
               {/* Controls */}
-              <div id="t-controls" className={cn("mt-8 flex items-center justify-center gap-8", isFocusMode && "mt-12")}>
+              <div id="t-controls" className={cn("relative z-[60] flex items-center justify-center gap-8 pb-16 md:pb-24", isFocusMode && "mt-12")}>
+
                 {!isFocusMode && (
-                  <button id="reset-btn" className="ctrl-sm" onClick={resetTimer}>
-                    <RotateCcw className="w-5 h-5" />
+                  <button 
+                    onClick={resetTimer}
+                    className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-white/5 border border-white/10 text-white/40 hover:text-white hover:bg-white/10 transition-all flex items-center justify-center shrink-0"
+                  >
+                    <RotateCcw className="w-5 h-5 md:w-6 md:h-6" />
                   </button>
                 )}
                 <button 
-                  id="play-btn" 
-                  className={cn("ctrl-play", isFocusMode && "w-16 h-16 rounded-2xl")} 
-                  onClick={() => setIsRunning(!isRunning)}
+                  onClick={toggleTimer}
+                  className={cn(
+                    "w-20 h-20 md:w-24 md:h-24 rounded-[2.2rem] md:rounded-[2.5rem] flex items-center justify-center transition-all border-4 md:border-8 shadow-2xl relative group overflow-hidden shrink-0",
+                    isRunning 
+                        ? "bg-[#05070d] border-white/10 text-white" 
+                        : "bg-orange-600 border-orange-400 text-white hover:scale-110 shadow-[0_0_40px_rgba(234,88,12,0.5)]"
+                  )}
                 >
-                  {isRunning ? 
-                    <Pause className={cn(isFocusMode ? "w-6 h-6" : "w-8 h-8", "fill-current")} /> : 
-                    <Play className={cn(isFocusMode ? "w-6 h-6 ml-1" : "w-8 h-8 ml-1", "fill-current")} />
-                  }
+                    {isRunning ? <Pause className="w-8 h-8 md:w-10 md:h-10 fill-current" /> : <Play className="w-8 h-8 md:w-10 md:h-10 fill-current ml-1 md:ml-2" />}
+                    {!isRunning && <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/20 to-white/0 animate-shimmer" />}
                 </button>
                 <button 
-                  id="expand-btn" 
-                  className={cn("ctrl-sm", isFocusMode && "w-16 h-16 rounded-2xl")} 
                   onClick={() => setIsFocusMode(!isFocusMode)}
+                  className={cn(
+                      "w-12 h-12 md:w-14 md:h-14 rounded-2xl border transition-all flex items-center justify-center shrink-0",
+                      isFocusMode ? "bg-orange-600 text-white border-orange-400 shadow-[0_0_20px_rgba(234,88,12,0.4)]" : "bg-white/5 border-white/10 text-white/40 hover:text-white"
+                  )}
                 >
-                  {isFocusMode ? <Minimize2 className={isFocusMode ? "w-6 h-6" : "w-5 h-5"} /> : <Maximize2 className="w-5 h-5" />}
+                  {isFocusMode ? <Minimize2 className="w-5 h-5 md:w-6 md:h-6" /> : <Maximize2 className="w-5 h-5 md:w-6 md:h-6" />}
                 </button>
               </div>
-
-              {/* Atmosphere trigger */}
-              {!isFocusMode && (
-                <div id="atmo-trigger" onClick={() => setIsAtmosphereSheetOpen(true)}>
-                  <Music className="w-4 h-4 text-white" />
-                  <span className="atmo-label">
-                    {activeAmbientTrack ? activeAmbientTrack.label : 'Atmosphere'}
-                  </span>
-                </div>
-              )}
-
-              {/* FAB removed from here, global FAB is sufficient */}
 
               {/* Overlays */}
               <AnimatePresence>
                 {showScoreCard && (
                   <motion.div 
                     id="score-float"
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
+                    className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-md p-6"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
                     onClick={() => setShowScoreCard(false)}
                   >
-                    <div 
-                      className="score-card"
+                    <motion.div 
+                      className="w-full max-w-sm glass rounded-[3rem] p-8 flex flex-col items-center text-center gap-6 border-2 border-orange-500/30"
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
                       onClick={e => e.stopPropagation()}
                     >
                       <div className="flex flex-col items-center gap-3">
-                        <div className="w-16 h-16 bg-amber-400/20 rounded-full flex items-center justify-center">
-                          <Trophy className="w-8 h-8 text-amber-400" />
+                        <div className="w-20 h-20 bg-orange-500/20 rounded-full flex items-center justify-center border-2 border-orange-500/40">
+                          <Trophy className="w-10 h-10 text-orange-500" />
                         </div>
-                        <h3 className="font-display font-black text-2xl tracking-tighter uppercase text-white">SESSION COMPLETE</h3>
+                        <h3 className="font-black text-2xl tracking-tighter uppercase text-white italic">MISSION COMPLETE</h3>
                       </div>
                       
-                      <span className="sc-score">{focusScore}</span>
+                      <div className="flex flex-col items-center">
+                          <span className="text-sm font-black uppercase tracking-widest opacity-40">Focus Score</span>
+                          <span className="sc-score text-7xl font-black italic text-orange-500 tracking-tighter">{focusScore}</span>
+                      </div>
                       
                       <button 
-                        id="s-confirm" 
                         onClick={() => {
                           setShowScoreCard(false);
                           if (mode === 'study') {
@@ -1856,10 +2066,11 @@ export default function App() {
                           }
                           setIsRunning(true);
                         }}
+                        className="w-full py-4 bg-orange-600 rounded-full text-white font-black uppercase tracking-widest hover:bg-orange-500 transition-all shadow-xl shadow-orange-600/30 active:scale-95 italic"
                       >
                         REDEEM & CONTINUE
                       </button>
-                    </div>
+                    </motion.div>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -1867,49 +2078,86 @@ export default function App() {
               {/* Intention Modal Integration */}
               <AnimatePresence>
                 {showIntentionInput && (
-                   <>
+                   <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center p-4">
                      <motion.div 
                        initial={{ opacity: 0 }}
                        animate={{ opacity: 1 }}
                        exit={{ opacity: 0 }}
                        onClick={() => setShowIntentionInput(false)}
-                       className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm"
+                       className="absolute inset-0 bg-black/80 backdrop-blur-md"
                      />
                      <motion.div 
-                       initial={{ y: "100%" }}
-                       animate={{ y: 0, transition: { type: "spring", stiffness: 300, damping: 30 } }}
-                       exit={{ y: "100%", transition: { duration: 0.3, ease: 'easeIn' } }}
-                       className="fixed bottom-0 left-0 right-0 md:left-1/2 md:-translate-x-1/2 max-w-lg w-full z-[101] bg-md-surface-2 md:rounded-t-[2.5rem] rounded-t-[2rem] border-t border-x border-white/10 shadow-[0_-20px_60px_rgba(0,0,0,0.5)] flex flex-col max-h-[80vh]"
+                       initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                       animate={{ scale: 1, opacity: 1, y: 0 }}
+                       exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                       className="relative w-full max-w-md glass rounded-[3rem] border-2 border-orange-500/30 overflow-hidden flex flex-col shadow-[0_0_100px_rgba(234,88,12,0.2)]"
                      >
-                        <div className="w-full flex justify-center pt-4 pb-2 shrink-0">
-                           <div className="w-12 h-1.5 bg-white/20 rounded-full" />
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                            <div className="space-y-2">
-                               <h3 className="text-xl font-bold font-display text-white">Set Your Intention</h3>
-                               <p className="text-xs text-white/60 font-medium">What will you accomplish in this block?</p>
-                            </div>
+                        {/* Scanning Effect */}
+                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-orange-500/50 to-transparent animate-scan" />
+                        
+                        <div className="p-8 flex flex-col gap-8 relative z-10">
+                          <div className="space-y-2 text-center">
+                              <div className="flex items-center justify-center gap-2">
+                                  <Flame className="w-6 h-6 text-orange-500 animate-pulse" />
+                                  <h2 className="text-2xl font-black italic uppercase tracking-tighter text-white">MISSION BRIEFING</h2>
+                              </div>
+                              <p className="text-[10px] text-white/40 font-black uppercase tracking-[0.3em]">Declare your objective to initiate focus</p>
+                          </div>
+
+                          <div className="relative">
                             <input 
-                              autoFocus
-                              type="text" 
-                              placeholder="e.g. Solving 10 PHY problems"
-                              value={sessionIntention}
-                              onChange={(e) => setSessionIntention(e.target.value)}
-                              onKeyDown={(e) => e.key === 'Enter' && sessionIntention.length > 2 && (setShowIntentionInput(false), setIsRunning(true), setSessionStartTime(Date.now()))}
-                              className="w-full bg-md-surface-3 border border-white/5 px-6 py-5 rounded-3xl text-sm font-medium focus:border-md-primary text-white focus:outline-none transition-colors"
+                                autoFocus
+                                type="text" 
+                                placeholder="Enter objective..."
+                                value={sessionIntention}
+                                onChange={(e) => setSessionIntention(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && sessionIntention.length > 2 && (setShowIntentionInput(false), setIsRunning(true), setSessionStartTime(Date.now()), playWhoosh())}
+                                className="w-full bg-white/5 border-2 border-white/10 px-6 py-5 rounded-[2rem] text-xl font-black italic text-white focus:border-orange-500/50 focus:outline-none transition-all placeholder:text-white/10 text-center"
                             />
-                        </div>
-                        <div className="p-4 border-t border-white/5 bg-md-surface-2 shrink-0 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-                            <button 
+                            <div className="absolute inset-0 pointer-events-none rounded-[2rem] border border-orange-500/5 animate-pulse" />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                            {[
+                              { label: 'Deep Work', icon: Brain },
+                              { label: 'Study session', icon: Target },
+                              { label: 'Coding Grind', icon: Zap },
+                              { label: 'Clean Mind', icon: Wind }
+                            ].map((preset) => (
+                              <button
+                                key={preset.label}
+                                onClick={() => setSessionIntention(preset.label)}
+                                className={cn(
+                                  "flex items-center justify-center gap-2 p-3 rounded-2xl border transition-all text-[10px] font-black uppercase tracking-widest",
+                                  sessionIntention === preset.label ? "bg-orange-500/20 border-orange-500 text-orange-500" : "bg-white/5 border-white/5 text-white/40 hover:bg-white/10"
+                                )}
+                              >
+                                <preset.icon className="w-3 h-3" />
+                                <span className="truncate">{preset.label}</span>
+                              </button>
+                            ))}
+                          </div>
+
+                          <button 
                               disabled={sessionIntention.length < 3}
-                              onClick={() => { setShowIntentionInput(false); setIsRunning(true); setSessionStartTime(Date.now()); }}
-                              className="w-full py-4 bg-md-primary rounded-full text-md-on-primary font-bold hover:bg-md-primary/90 active:scale-95 disabled:opacity-30 transition-all shadow-lg shadow-md-primary/20"
-                            >
-                              Initialize Protocol
-                            </button>
+                              onClick={() => { setShowIntentionInput(false); setIsRunning(true); setSessionStartTime(Date.now()); playWhoosh(); }}
+                              className="w-full py-5 bg-orange-600 rounded-[2rem] text-white font-black italic uppercase tracking-widest hover:bg-orange-500 transition-all shadow-[0_0_40px_rgba(234,88,12,0.4)] disabled:opacity-30 disabled:grayscale group relative overflow-hidden"
+                          >
+                              <div className="relative z-10 flex items-center justify-center gap-2">
+                                <span>IGNITE PROTOCOL</span>
+                                <Play className="w-4 h-4 fill-current group-hover:translate-x-1 transition-transform" />
+                              </div>
+                          </button>
+
+                          <button 
+                            onClick={() => setShowIntentionInput(false)}
+                            className="text-[10px] font-black uppercase tracking-widest text-white/20 hover:text-white/60 transition-colors"
+                          >
+                            ABORT MISSION
+                          </button>
                         </div>
                      </motion.div>
-                   </>
+                   </div>
                 )}
               </AnimatePresence>
             </motion.div>
@@ -2098,7 +2346,11 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               className="space-y-6"
             >
-              <AnalyticsView sessionLogs={sessionLogs} allSubjects={allSubjects} />
+              <AnalyticsView 
+                sessionLogs={sessionLogs} 
+                allSubjects={allSubjects} 
+                activeTimerSeconds={mode === 'study' ? currentSessionSeconds : 0} 
+              />
 
               {/* Skill Tree */}
               <div className="space-y-4">
@@ -2255,11 +2507,11 @@ export default function App() {
                   <div className="space-y-2">
                     <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest opacity-80">
                       <span>Work Duration</span>
-                      <span>{profile?.settings?.workDuration || 50} min</span>
+                      <span>{profile?.settings?.workDuration || 25} min</span>
                     </div>
                     <input 
                       type="range" min="10" max="120" step="5"
-                      value={profile?.settings?.workDuration || 50}
+                      value={profile?.settings?.workDuration || 25}
                       onChange={async (e) => {
                          if(!user) return;
                          const val = parseInt(e.target.value);
@@ -2271,17 +2523,34 @@ export default function App() {
                   </div>
                   <div className="space-y-2">
                     <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest opacity-80">
-                      <span>Break Duration</span>
-                      <span>{profile?.settings?.breakDuration || 10} min</span>
+                      <span>Short Break</span>
+                      <span>{profile?.settings?.breakDuration || 5} min</span>
                     </div>
                     <input 
-                      type="range" min="5" max="30" step="5"
-                      value={profile?.settings?.breakDuration || 10}
+                      type="range" min="5" max="30" step="1"
+                      value={profile?.settings?.breakDuration || 5}
                       onChange={async (e) => {
                          if(!user) return;
                          const val = parseInt(e.target.value);
                          setProfile(p => p ? {...p, settings: {...p.settings, breakDuration: val}} : p);
                          await updateDoc(doc(db, 'users', user.uid), { 'settings.breakDuration': val });
+                      }}
+                      className="w-full accent-primary"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest opacity-80">
+                      <span>Long Break</span>
+                      <span>{profile?.settings?.longBreakDuration || 15} min</span>
+                    </div>
+                    <input 
+                      type="range" min="5" max="60" step="5"
+                      value={profile?.settings?.longBreakDuration || 15}
+                      onChange={async (e) => {
+                         if(!user) return;
+                         const val = parseInt(e.target.value);
+                         setProfile(p => p ? {...p, settings: {...p.settings, longBreakDuration: val}} : p);
+                         await updateDoc(doc(db, 'users', user.uid), { 'settings.longBreakDuration': val });
                       }}
                       className="w-full accent-primary"
                     />
@@ -2581,12 +2850,12 @@ export default function App() {
           >
             <header className="p-6 flex items-center justify-between border-b border-outline/20 pt-[calc(1.5rem+env(safe-area-inset-top))]">
               <div className="flex items-center gap-3">
-                 <div className="p-2 bg-blue-500/20 rounded-xl">
-                    <Sparkles className="w-5 h-5 text-blue-400" />
+                 <div className="p-2 bg-orange-500/20 rounded-xl">
+                    <ShieldAlert className="w-5 h-5 text-orange-400" />
                  </div>
                  <div>
-                    <h3 className="font-bold">Aether AI Coach</h3>
-                    <p className="text-[10px] uppercase font-bold text-blue-400 tracking-widest">Quantum Engine Online</p>
+                    <h3 className="font-black text-white italic">PUBLIC SAFETY HQ</h3>
+                    <p className="text-[10px] uppercase font-black text-orange-400 tracking-widest">Devil Hunter Registry Active</p>
                  </div>
               </div>
               <button 
@@ -2602,24 +2871,24 @@ export default function App() {
                 <div className="flex flex-wrap gap-2 justify-center pb-4">
                   <button 
                     onClick={() => {
-                        sendToCoach("Analyze my current performance, XP, health stats, and JEE targets to suggest 3 personalized micro-tasks to optimize my day.");
+                        sendToCoach("Analyze my current focus patterns, mission completion rate, and extermination targets to suggest 3 personalized directives.");
                     }}
-                    className="px-4 py-2 bg-blue-500/10 text-blue-400 rounded-full text-[10px] font-black uppercase tracking-widest border border-blue-500/20 hover:bg-blue-500/20 transition-colors"
+                    className="px-4 py-2 bg-orange-500/10 text-orange-400 rounded-full text-[10px] font-black uppercase tracking-widest border border-orange-500/20 hover:bg-orange-500/20 transition-colors"
                   >
-                     Request Proactive Assessment
+                     HQ MISSION ASSESSMENT
                   </button>
                   <button 
                     onClick={() => {
-                        sendToCoach("How can I improve my focus system and discipline based on my stats?");
+                        sendToCoach("How can I survive the pressure of finals and keep my discipline levels high?");
                     }}
-                    className="px-4 py-2 bg-emerald-500/10 text-emerald-400 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
+                    className="px-4 py-2 bg-red-500/10 text-red-400 rounded-full text-[10px] font-black uppercase tracking-widest border border-red-500/20 hover:bg-red-500/20 transition-colors"
                   >
-                     System Optimization
+                     COMBAT SYSTEM OPTIMIZATION
                   </button>
                   <button 
                     onClick={async () => {
                         setIsAiTyping(true);
-                        setCoachMessages(prev => [...prev, { role: 'user', text: "Suggest some micro-habits based on my goals and stats." }]);
+                        setCoachMessages(prev => [...prev, { role: 'user', text: "Requesting new survival protocols (habits)." }]);
                         const context = {
                           profile,
                           tasksAnalytics: {
@@ -2636,12 +2905,12 @@ export default function App() {
                           habitStreakMax: habits.reduce((acc, h) => Math.max(acc, h.streak || 0), 0)
                         };
                         const suggestions = await getAIHabitSuggestions(context);
-                        setCoachMessages(prev => [...prev, { role: 'ai', text: "Based on your current trajectory, I highly recommend initializing these micro-habits to reinforce your discipline:", habitSuggestions: suggestions }]);
+                        setCoachMessages(prev => [...prev, { role: 'ai', text: "Based on your combat record, I've drafted these survival protocols:", habitSuggestions: suggestions }]);
                         setIsAiTyping(false);
                     }}
-                    className="px-4 py-2 bg-pink-500/10 text-pink-400 rounded-full text-[10px] font-black uppercase tracking-widest border border-pink-500/20 hover:bg-pink-500/20 transition-colors"
+                    className="px-4 py-2 bg-yellow-500/10 text-yellow-500 rounded-full text-[10px] font-black uppercase tracking-widest border border-yellow-500/20 hover:bg-yellow-500/20 transition-colors"
                   >
-                     Suggest Protocols
+                     REQUEST PROTOCOLS
                   </button>
                 </div>
               )}
@@ -2768,6 +3037,7 @@ export default function App() {
     </motion.div>
   )}
 </AnimatePresence>
+<PochitaPet timerRunning={isRunning} mode={mode} />
 </div>
 );
 }

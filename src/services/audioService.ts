@@ -222,8 +222,12 @@ export const playAmbientSound = (url: string | undefined, trackId: string) => {
   
   if (trackId === 'deep-focus' || trackId === 'white-noise') {
       activeNodes[trackId] = createBinauralBeats();
-  } else if (trackId === 'lofi') {
+  } else if (trackId === 'lofi' || trackId === 'chillhop' || trackId === 'thunder-breathing') {
       activeNodes[trackId] = createLofiBeats();
+  } else if (trackId === 'chainsaw-engine') {
+      // Create a deeper rumble
+      const noise = createBrownNoise();
+      activeNodes[trackId] = noise;
   } else {
       activeNodes[trackId] = createBrownNoise();
   }

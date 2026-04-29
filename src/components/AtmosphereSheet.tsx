@@ -1,17 +1,40 @@
 import React, { useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Music, Disc, Play, Pause, SkipBack, SkipForward, Repeat, Shuffle, Volume2 } from 'lucide-react';
+import { X, Music, Disc, Play, Pause, SkipBack, SkipForward, Repeat, Shuffle, Volume2, CloudRain, Waves, Flame, Coffee, BookOpen, Brain, Wind, Headphones, Book, Zap, Activity } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { AmbientTrack } from '../types'; // I will create types.ts definition, but we can assume it's exported from there
 import { playAmbientSound, stopAmbientSound, setMasterVolume } from '../services/audioService';
 
 interface AtmosphereSheetProps {
   isOpen: boolean;
   onClose: () => void;
-  tracks: any[]; // will rely on existing type
+  tracks: any[]; 
   activeTrack: any | null;
   onTrackSelect: (track: any) => void;
 }
+
+const CATEGORY_ICONS: Record<string, any> = {
+  nature: CloudRain,
+  lofi: Headphones,
+  focus: Brain,
+  atmosphere: Coffee,
+};
+
+const getTrackIcon = (track: any) => {
+  if (track.id === 'rain') return CloudRain;
+  if (track.id === 'waves') return Waves;
+  if (track.id === 'fire') return Flame;
+  if (track.id === 'cafe') return Coffee;
+  if (track.id === 'library') return BookOpen;
+  if (track.id === 'deep-focus') return Brain;
+  if (track.id === 'white-noise') return Wind;
+  if (track.id === 'lofi') return Music;
+  if (track.id === 'chillhop') return Headphones;
+  if (track.id === 'lofi-study') return Book;
+  if (track.id === 'binaural-beats') return Headphones;
+  if (track.id === 'thunder-breathing') return Zap;
+  if (track.id === 'chainsaw-engine') return Activity;
+  return Music;
+};
 
 export const AtmosphereSheet: React.FC<AtmosphereSheetProps> = ({ isOpen, onClose, tracks, activeTrack, onTrackSelect }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -28,24 +51,19 @@ export const AtmosphereSheet: React.FC<AtmosphereSheetProps> = ({ isOpen, onClos
 
   useEffect(() => {
     if (isOpen && canvasRef.current) {
-        // Draw simple waveform animation
         const ctx = canvasRef.current.getContext('2d');
         if (!ctx) return;
         let animationFrame: number;
         const draw = () => {
              ctx.clearRect(0, 0, canvasRef.current!.width, canvasRef.current!.height);
-             
-             ctx.strokeStyle = '#00E5C8'; // md-primary
+             ctx.strokeStyle = '#00E5C8';
              ctx.lineWidth = 2;
              ctx.lineCap = 'round';
              ctx.beginPath();
-             
              const width = canvasRef.current!.width;
              const height = canvasRef.current!.height;
              const midY = height / 2;
-             
              for(let i = 0; i < width; i++) {
-                 // Dynamic amplitude based on playing state
                  const amp = isPlaying ? 15 + Math.sin(Date.now() * 0.005 + i * 0.1) * 10 : 2;
                  const y = midY + Math.sin(i * 0.05 + Date.now() * 0.002) * amp;
                  if (i === 0) ctx.moveTo(i, y);
@@ -98,7 +116,7 @@ export const AtmosphereSheet: React.FC<AtmosphereSheetProps> = ({ isOpen, onClos
                </div>
                
                <div className="flex justify-between items-center mb-6 shrink-0">
-                   <h2 className="text-2xl font-black font-display text-white tracking-tight">Atmosphere</h2>
+                   <h2 className="text-2xl font-black font-display text-white tracking-tight">Soundscapes</h2>
                    <button onClick={onClose} className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-all"><X className="w-5 h-5 text-white" /></button>
                </div>
                
@@ -155,22 +173,35 @@ export const AtmosphereSheet: React.FC<AtmosphereSheetProps> = ({ isOpen, onClos
                  Initiate Focus Mix
                </button>
 
-               <div className="flex-1 overflow-y-auto grid grid-cols-2 gap-4 pb-2 pr-1 custom-scrollbar">
-                   {tracks.map(track => (
-                       <button 
-                         key={track.id}
-                         onClick={() => onTrackSelect(track)}
-                         className={cn("p-5 rounded-[2.5rem] border transition-all flex flex-col items-center gap-4 group", 
-                           activeTrack?.id === track.id ? "bg-md-primary-container/20 border-md-primary shadow-lg" : "bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/20"
-                         )}
-                       >
-                           <div className={cn("p-4 rounded-2xl transition-all", activeTrack?.id === track.id ? "bg-md-primary text-md-on-primary scale-110" : "bg-white/10 text-white/60 group-hover:bg-white/20 group-hover:text-white")}>
-                             <Music className="w-6 h-6" />
-                           </div>
-                           <span className={cn("text-[10px] font-black uppercase tracking-widest text-center", activeTrack?.id === track.id ? "text-md-primary" : "text-white/60")}>{track.label}</span>
-                       </button>
-                   ))}
-               </div>
+               <div className="flex-1 overflow-y-auto pb-4 pr-1 custom-scrollbar">
+                    {tracks && ['focus', 'lofi', 'nature', 'atmosphere'].map(category => (
+                        <div key={category} className="mb-6">
+                            <h3 className="text-[10px] font-black text-white/40 uppercase tracking-[0.4em] mb-4 pl-2 flex items-center gap-2">
+                                {React.createElement(CATEGORY_ICONS[category] || Music, { size: 12 })}
+                                {category}
+                            </h3>
+                            <div className="grid grid-cols-2 gap-4">
+                                {tracks.filter(t => t?.category === category).map(track => {
+                                    const Icon = getTrackIcon(track);
+                                    return (
+                                        <button 
+                                          key={track.id}
+                                          onClick={() => onTrackSelect(track)}
+                                          className={cn("p-5 rounded-[2.5rem] border transition-all flex flex-col items-center gap-4 group", 
+                                            activeTrack?.id === track.id ? "bg-md-primary-container/20 border-md-primary shadow-lg" : "bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/20"
+                                          )}
+                                        >
+                                            <div className={cn("p-4 rounded-2xl transition-all", activeTrack?.id === track.id ? "bg-md-primary text-md-on-primary scale-110" : "bg-white/10 text-white/60 group-hover:bg-white/20 group-hover:text-white")}>
+                                              <Icon className="w-6 h-6" />
+                                            </div>
+                                            <span className={cn("text-[10px] font-black uppercase tracking-widest text-center", activeTrack?.id === track.id ? "text-md-primary" : "text-white/60")}>{track.label}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ))}
+                </div>
              </div>
            </motion.div>
         </>

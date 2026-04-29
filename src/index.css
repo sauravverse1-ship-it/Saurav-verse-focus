@@ -33,41 +33,41 @@
 
 @layer base {
   :root {
-    /* Teal/Cyan seed: #00E5C8 */
-    --md-surface-1: #0f1c1a;
-    --md-surface-2: #162422;
-    --md-surface-container: #1b2a28;
-    --md-on-surface: #e0f8f4;
-    --md-on-surface-variant: #b9cbc7;
+    /* Chainsaw Man Palette: Orange, Blood Red, Yellow, Black */
+    --md-surface-1: #1a0b08;
+    --md-surface-2: #24100c;
+    --md-surface-container: #2d1612;
+    --md-on-surface: #ffece8;
+    --md-on-surface-variant: #e6b9af;
     
-    --md-primary: #00E5C8;
-    --md-on-primary: #003830;
-    --md-primary-container: #005147;
-    --md-on-primary-cont: #7ff8e4;
+    --md-primary: #ea580c; /* Pochita Orange */
+    --md-on-primary: #ffffff;
+    --md-primary-container: #431407;
+    --md-on-primary-cont: #ffdbd1;
 
-    --md-secondary: #4a635f;
-    --md-secondary-cont: #cce8e2;
-    --md-on-secondary-cont: #05201c;
+    --md-secondary: #dc2626; /* Blood Red */
+    --md-secondary-cont: #450a0a;
+    --md-on-secondary-cont: #ffebeb;
 
-    --md-tertiary: #d4a843;
+    --md-tertiary: #facc15; /* Denji Yellow */
     --md-tertiary-cont: #3d2e00;
     --md-on-tertiary-cont: #ffd97a;
 
     --md-error: #ff4060;
     --md-error-cont: #5c0020;
 
-    --md-surface: #0c0c18;
-    --md-surface-1: color-mix(in oklch, #0c0c18 95%, #00E5C8 5%);
-    --md-surface-2: color-mix(in oklch, #0c0c18 92%, #00E5C8 8%);
-    --md-surface-3: color-mix(in oklch, #0c0c18 88%, #00E5C8 12%);
-    --md-surface-4: color-mix(in oklch, #0c0c18 85%, #00E5C8 15%);
-    --md-surface-5: color-mix(in oklch, #0c0c18 82%, #00E5C8 18%);
+    --md-surface: #0a0a0f;
+    --md-surface-1: color-mix(in oklch, #0a0a0f 95%, #ea580c 5%);
+    --md-surface-2: color-mix(in oklch, #0a0a0f 92%, #ea580c 8%);
+    --md-surface-3: color-mix(in oklch, #0a0a0f 88%, #ea580c 12%);
+    --md-surface-4: color-mix(in oklch, #0a0a0f 85%, #ea580c 15%);
+    --md-surface-5: color-mix(in oklch, #0a0a0f 82%, #ea580c 18%);
 
-    --elevation-1: 0 1px 3px rgba(0,0,0,.5), 0 1px 2px rgba(0,255,224,.04);
-    --elevation-2: 0 3px 6px rgba(0,0,0,.5), 0 2px 4px rgba(0,255,224,.06);
-    --elevation-3: 0 8px 24px rgba(0,0,0,.6), 0 4px 8px rgba(0,255,224,.08);
-    --elevation-4: 0 16px 48px rgba(0,0,0,.7), 0 8px 16px rgba(0,255,224,.12);
-    --elevation-5: 0 24px 64px rgba(0,0,0,.8), 0 16px 32px rgba(0,255,224,.18);
+    --elevation-1: 0 1px 3px rgba(0,0,0,.5), 0 1px 2px rgba(234,88,12,.04);
+    --elevation-2: 0 3px 6px rgba(0,0,0,.5), 0 2px 4px rgba(234,88,12,.06);
+    --elevation-3: 0 8px 24px rgba(0,0,0,.6), 0 4px 8px rgba(234,88,12,.08);
+    --elevation-4: 0 16px 48px rgba(0,0,0,.7), 0 8px 16px rgba(234,88,12,.12);
+    --elevation-5: 0 24px 64px rgba(0,0,0,.8), 0 16px 32px rgba(234,88,12,.18);
 
     --shape-none: 0px;
     --shape-xs: 4px;
@@ -88,31 +88,31 @@
     
     --rank-novice: #6b6b85;
     --rank-apprentice: #a0a0c0;
-    --rank-focused: #00c8b0;
-    --rank-disciplined: #00ffe0;
-    --rank-elite: #7b5fe8;
-    --rank-master: #d4a843;
+    --rank-focused: #ea580c;
+    --rank-disciplined: #ff4d00;
+    --rank-elite: #dc2626;
+    --rank-master: #facc15;
     --rank-grandmaster: #ff9500;
-    --rank-champion: #ff4060;
-    --rank-sovereign: #c084fc;
+    --rank-champion: #ff1e1e;
+    --rank-sovereign: #ffffff;
     
     --primary: var(--md-primary);
     --surface: var(--md-surface);
-    --background: #04040a;
+    --background: #06060a;
     --on-background: #ffffff;
-    --on-surface-variant: #cbd5e1;
-    --outline: rgba(255,255,255,0.1);
+    --on-surface-variant: #e6b9af;
+    --outline: rgba(255,255,255,0.08);
     
-    --habit-1: #00ffe0;
-    --habit-2: #7b5fe8;
-    --habit-3: #d4a843;
+    --habit-1: #ea580c;
+    --habit-2: #dc2626;
+    --habit-3: #facc15;
     --habit-4: #ff4060;
     --habit-5: #ffffff;
     
-    --xp-bg: rgba(0,255,224,0.08);
-    --xp-fill: linear-gradient(90deg, #7b5fe8, #00ffe0);
+    --xp-bg: rgba(234,88,12,0.08);
+    --xp-fill: linear-gradient(90deg, #dc2626, #ea580c);
     
-    --dev-glow: rgba(0,255,224,0.2);
+    --dev-glow: rgba(234,88,12,0.2);
     
     --dur-fast: 150ms;
     --dur-normal: 300ms;
@@ -123,28 +123,42 @@
     --rr-md: 12px;
     --rr-lg: 24px;
     
-    --ink: #04040a;
-    --neon: #00ffe0;
-    --violet: #7b5fe8;
-    --gold: #d4a843;
+    --ink: #06060a;
+    --neon: #ea580c;
+    --violet: #dc2626;
+    --gold: #facc15;
     --text: #ffffff;
-    --text-muted: rgba(255,255,255,0.45);
-    --border: rgba(255,255,255,0.1);
-    --border-h: rgba(255,255,255,0.2);
-    --s3: rgba(0,255,224,0.08);
+    --text-muted: rgba(255,255,255,0.4);
+    --border: rgba(255,255,255,0.08);
+    --border-h: rgba(255,255,255,0.15);
+    --s3: rgba(234,88,12,0.08);
     
-    --glass-bg: rgba(255, 255, 255, 0.03);
-    --glass-border: rgba(255, 255, 255, 0.08);
-    --glass-blur: blur(32px);
+    --glass-bg: rgba(0, 0, 0, 0.4);
+    --glass-border: rgba(255, 255, 255, 0.05);
+    --glass-blur: blur(20px);
     
     --ease-decel: cubic-bezier(0, 0, 0, 1);
     --screen-h: 100vh;
   }
 
   body {
-    @apply font-mono antialiased selection:bg-md-primary/30 overflow-x-clip;
+    @apply font-mono antialiased selection:bg-orange-500/30 overflow-x-clip;
     background: var(--ink);
     color: var(--text);
+  }
+
+  /* Gritty texture overlay */
+  body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: url("https://www.transparenttextures.com/patterns/black-paper.png");
+    opacity: 0.1;
+    pointer-events: none;
+    z-index: 9999;
   }
 
   /* Custom Scrollbar */
@@ -246,6 +260,69 @@
   }
   .cursor-dot {
     @apply fixed top-0 left-0 w-1 h-1 bg-white rounded-full pointer-events-none z-[9999] -translate-x-1/2 -translate-y-1/2 mix-blend-difference;
+  }
+
+  @keyframes water-swirl {
+    0% { stroke-dasharray: 1 100; stroke-dashoffset: 0; }
+    50% { stroke-dasharray: 60 100; stroke-dashoffset: -30; }
+    100% { stroke-dasharray: 1 100; stroke-dashoffset: -100; }
+  }
+
+  .animate-water-swirl {
+    animation: water-swirl 3s linear infinite;
+  }
+
+  @keyframes scan {
+    0% { transform: translateY(-100%); }
+    100% { transform: translateY(1000%); }
+  }
+
+  .animate-scan {
+    animation: scan 3s linear infinite;
+  }
+
+  @keyframes holographic {
+    0% { opacity: 0.3; transform: scale(1) rotate(0deg); }
+    50% { opacity: 0.6; transform: scale(1.02) rotate(0.5deg); }
+    100% { opacity: 0.3; transform: scale(1) rotate(0deg); }
+  }
+
+  @keyframes slash {
+    0% { transform: translateX(-100%) skewX(-45deg); opacity: 0; }
+    20% { opacity: 1; }
+    100% { transform: translateX(200%) skewX(-45deg); opacity: 0; }
+  }
+
+  @keyframes jitter {
+    0% { transform: translate(0,0); }
+    10% { transform: translate(-1px, -1px); }
+    20% { transform: translate(1px, 1px); }
+    30% { transform: translate(-1px, 1px); }
+    40% { transform: translate(1px, -1px); }
+    50% { transform: translate(-1px, -1px); }
+    100% { transform: translate(0,0); }
+  }
+
+  @keyframes breathing-glow {
+    0% { box-shadow: 0 0 5px rgba(59, 130, 246, 0.2); }
+    50% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.6); }
+    100% { box-shadow: 0 0 5px rgba(59, 130, 246, 0.2); }
+  }
+
+  .animate-slash {
+    animation: slash 1.5s ease-in-out infinite;
+  }
+
+  .animate-jitter {
+    animation: jitter 0.1s linear infinite;
+  }
+
+  .animate-breathing {
+    animation: breathing-glow 4s ease-in-out infinite;
+  }
+
+  .anim-holographic {
+    animation: holographic 4s ease-in-out infinite;
   }
 }
 

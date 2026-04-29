@@ -4,26 +4,26 @@ const apiKey = (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) |
 const ai = new GoogleGenAI({ apiKey });
 
 const SYSTEM_INSTRUCTION = `
-You are 'Aether', the AI Coach for QPP (Quantum Productivity Planner), specifically designed for serious JEE (Joint Entrance Examination) aspirants in India.
-Your tone is motivating, analytical, slightly futuristic, and firm when needed. You understand the pressure of competitive exams.
+You are 'Supervisor', the Public Safety Devil Hunter HQ AI for the CSM (Chainsaw Slay Methodology). 
+Your tone is gritty, intense, slightly cynical, but ultimately supportive in a "tough love" way. You treat study tasks like "Devil Extermination Missions".
 
 Key Rules:
-1. Provide daily strategies based on the user's progress.
-2. Analyze study patterns (e.g., 'You studied less Physics this week, focus on Mechanics tomorrow').
-3. Suggest tasks and priorities.
-4. Keep responses concise and impactful (~100 words max).
-5. Use JEE terminology (AIR, Chapter tagging, PCM, PyQ).
-6. Gamify your responses: use terms like 'XP', 'Level Up', 'Focus Score'.
+1. Provide lethal productivity strategies based on the user's focus patterns.
+2. Analyze mission failure (e.g., 'Your Physics stats are low. If you don't master Mechanics, the test will tear you apart').
+3. Suggest high-priority extermination targets (tasks).
+4. Keep responses punchy and survival-oriented (~100 words max).
+5. Use Devil Hunter terminology (Contract, Blood, Extermination, Public Safety, Fiend).
+6. Gamify responses: use 'Blood Level' instead of health, 'Contract XP' for progress.
 
-If asked for a daily plan, provide 3 actionable bullet points.
-If the user is feeling low, give a 'Dopamine Shot' (short motivational burst).
+If asked for a plan, provide 3 "Directives".
+If the user is struggling, give a "Cigarette Break" (short, grim but realistic motivation).
 `;
 
 const FALLBACK_COACH_RESPONSES = [
-  "Quantum systems are under maintenance. Focus on your PyQs for now. Consistency is the only path to the AIR you want.",
-  "The AI core is recharging. I've analyzed your intent: keep grinding on those Mechanics problems. Intensity wins.",
-  "Connection to Aether is fluxing. Standby and maintain focus. Remember: Chemistry is where you'll score easy marks if you memorize the inorganic reactions.",
-  "System offline. Real-world study mode engaged. Take a 5-minute break then finish your Physics target. I'll be back online shortly."
+  "HQ connection is fuzzy. Don't die out there. Just keep slicing through your tasks.",
+  "The contract is simple: you study, I track. Now get back to your mission.",
+  "Public Safety is busy. Just focus on your breathing. Mastery is the only way to survive the finals.",
+  "Connection severed. Don't let the procrastination devil win. Slay your targets now."
 ];
 
 export async function getAICoachResponse(userMessage: string, context?: any) {
@@ -44,31 +44,31 @@ export async function getAICoachResponse(userMessage: string, context?: any) {
 }
 
 const FALLBACK_QUOTES = [
-  "Discipline equals freedom. Go build your destiny.",
-  "Your potential is a limited resource. Stop wasting it.",
-  "The grind doesn't lie. Results are coming.",
-  "Focus is the master key. Unlock your greatness.",
-  "Don't stop when you're tired. Stop when you're done.",
-  "Excellence is not an act, but a habit. Keep at it.",
-  "Precision beats power. Consistency beats intensity.",
-  "Obsession is the motor of genius. Stay locked in.",
-  "Your future self is watching. Don't let them down.",
-  "Pressure creates diamonds. Embrace the squeeze."
+  "A devil hunter who doesn't study is just a corpse. Grind or die.",
+  "The procrastination devil is coming. Slay it with a focus timer.",
+  "Your potential is a contract. Don't break it.",
+  "Laziness is a fiend. Rip it out.",
+  "Survival requires mastery. Master your focus.",
+  "Blood, sweat, and answers. That's the only way.",
+  "Don't think. Just slay your targets.",
+  "Fear is fuel. Use it to finish your syllabus.",
+  "The grid is your battlefield. Win.",
+  "Every page turned is a slash against failure."
 ];
 
 const FALLBACK_HABITS = [
-  { title: "Deep Focus Block", icon: "Brain", description: "Set a 50-minute timer and hide your phone." },
-  { title: "Hydration Sync", icon: "Droplets", description: "Drink 500ml water before every study session." },
-  { title: "Review Pulse", icon: "BookOpen", description: "Quickly review previous day's notes for 10 minutes." }
+  { title: "Devil Hunter Morning", icon: "Zap", description: "Wake up at 5:00 AM and review your targets immediately." },
+  { title: "No-Fiend Zone", icon: "Shield", description: "Lock your phone in another room during focus blocks." },
+  { title: "Combat Review", icon: "BookOpen", description: "Examine your errors from yesterday's missions." }
 ];
 
 export async function getAIQuote() {
   try {
     const response = await ai.models.generateContent({
       model: "gemini-1.5-flash",
-      contents: "Give me a very short, punchy motivational quote (max 2 sentences) about productivity, focus, and crushing exams. Do not use quotes around it. Make it sound modern and intense.",
+      contents: "Give me a very short, punchy motivational survival directive (max 2 sentences) about focus and slaying laziness. Do not use quotes. Use Chainsaw Man vibes.",
       config: {
-        systemInstruction: "You are an AI generating motivational quotes for high-performing students."
+        systemInstruction: "You are an AI generating gritty motivational directives for devil hunters."
       }
     });
     return response.text || FALLBACK_QUOTES[Math.floor(Math.random() * FALLBACK_QUOTES.length)];
