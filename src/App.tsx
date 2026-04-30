@@ -12,7 +12,7 @@ import {
   Play, Pause, RotateCcw, CheckCircle, Home, Timer, BarChart2, User as UserIcon, 
   Plus, Settings, Volume2, VolumeX, Maximize2, Minimize2, Award, Zap, 
   CloudRain, Coffee, Wind, LogOut, Download, BookOpen, Heart, Activity, Calendar, 
-  Trash2, Edit, ChevronRight, Hash, Clock, Brain, Target, Flame, Sparkles, MessageSquare, Battery, Droplets, Moon, Utensils, ShieldCheck, ShieldAlert, ThumbsUp, ThumbsDown, SkipForward, Star, Music, AlertCircle, Trophy
+  Trash2, Edit, ChevronRight, Hash, Clock, Brain, Target, Flame, Sparkles, MessageSquare, Battery, Droplets, Moon, Utensils, ShieldCheck, ShieldAlert, ThumbsUp, ThumbsDown, SkipForward, Star, Music, AlertCircle, Trophy, Loader2
 } from 'lucide-react';
 import { getAICoachResponse, getAIQuote, getAIHabitSuggestions } from './services/geminiService';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
@@ -20,7 +20,8 @@ import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
 import './i18n';
 import { Howl } from 'howler';
-import { HeroSection, StorySection } from './components/CinematicSections';
+import { SimpleTimer } from './components/SimpleTimer';
+import { HeroSection } from './components/CinematicSections';
 import { ExamCard } from './components/ExamCountdown/ExamCard';
 import { VitalitySection } from './components/Vitality/VitalitySection';
 import { HabitsSection } from './components/HabitsSection';
@@ -172,7 +173,15 @@ const Button = ({ className, children, ...props }: React.ButtonHTMLAttributes<HT
 
 const NavButton = ({ active, icon: Icon, label, onClick }: { active: boolean, icon: any, label: string, onClick: () => void }) => (
   <button 
-    onClick={() => { playTick(); onClick(); }}
+    onClick={(e) => { 
+      playTick(); 
+      onClick(); 
+      // Trigger spark effect
+      if (typeof window !== 'undefined') {
+        const event = new CustomEvent('app-touch-spark', { detail: { x: e.clientX, y: e.clientY } });
+        window.dispatchEvent(event);
+      }
+    }}
     onMouseEnter={playTick}
     className={cn(
       "group relative flex items-center md:flex-row flex-col gap-1 md:gap-4 md:w-full md:px-4 md:py-3 transition-all duration-300 h-16 md:h-auto justify-center md:justify-start px-2",
@@ -203,6 +212,18 @@ const NavButton = ({ active, icon: Icon, label, onClick }: { active: boolean, ic
 export default function App() {
   const { t, i18n } = useTranslation();
   const [view, setView] = useState<'cinematic' | 'dashboard'>('cinematic');
+  const [touchSparks, setTouchSparks] = useState<{ id: number, x: number, y: number }[]>([]);
+
+  useEffect(() => {
+    const handleSpark = (e: any) => {
+      setTouchSparks(s => [...s, { id: Date.now(), x: e.detail.x, y: e.detail.y }]);
+      setTimeout(() => {
+        setTouchSparks(s => s.slice(1));
+      }, 600);
+    };
+    window.addEventListener('app-touch-spark', handleSpark);
+    return () => window.removeEventListener('app-touch-spark', handleSpark);
+  }, []);
 
   const handleDashboardTransition = () => {
     playWhoosh();
@@ -216,6 +237,40 @@ export default function App() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [activeTab, setActiveTab] = useState<'home' | 'tasks' | 'habits' | 'timer' | 'stats' | 'profile'>('home');
   const [loading, setLoading] = useState(true);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  const handleGoogleLogin = async () => {
+    setIsAuthenticating(true);
+    setAuthError(null);
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (e: any) {
+      console.warn("Popup failed, trying redirect:", e);
+      if (e.code === 'auth/popup-blocked' || e.code === 'auth/cancelled-by-user') {
+        try {
+          await signInWithRedirect(auth, googleProvider);
+        } catch (re: any) {
+          setAuthError(re.message || "Authentication failed.");
+          setIsAuthenticating(false);
+        }
+      } else {
+        setAuthError(e.message || "Authentication failed.");
+        setIsAuthenticating(false);
+      }
+    }
+  };
+
+  const handleAnonymousLogin = async () => {
+    setIsAuthenticating(true);
+    setAuthError(null);
+    try {
+      await signInAnonymously(auth);
+    } catch (e: any) {
+      setAuthError(e.message || "Anonymous login failed.");
+      setIsAuthenticating(false);
+    }
+  };
 
   // AI Coach State
   const [isCoachOpen, setIsCoachOpen] = useState(false);
@@ -267,6 +322,7 @@ export default function App() {
   const [focusScore, setFocusScore] = useState<number | null>(null);
   const [breakActivity, setBreakActivity] = useState<string>("");
   const [sessionLogs, setSessionLogs] = useState<SessionLog[]>([]);
+  const [isSimpleTimerMode, setIsSimpleTimerMode] = useState(false);
 
   // Part 2 & 3 Timer States
   const [showScoreCard, setShowScoreCard] = useState(false);
@@ -323,6 +379,11 @@ export default function App() {
   }, []);
 
   // Sync Firebase sessions for logged in users
+  const tasksRef = useRef(tasks);
+  useEffect(() => {
+    tasksRef.current = tasks;
+  }, [tasks]);
+
   useEffect(() => {
     if (!user) return;
     const q = query(collection(db, 'users', user.uid, 'sessions'), orderBy('timestamp', 'desc'), limit(100));
@@ -335,7 +396,7 @@ export default function App() {
           timestamp: data.timestamp,
           type: 'focus',
           missionTitle: data.missionTitle || 'Focus Session',
-          subject: data.subject || data.taskId ? tasks.find(t => t.id === data.taskId)?.subjects?.[0] : null,
+          subject: data.subject || data.taskId ? tasksRef.current.find(t => t.id === data.taskId)?.subjects?.[0] : null,
           completed: true
         };
       });
@@ -350,7 +411,7 @@ export default function App() {
       });
     });
     return () => unsubscribe();
-  }, [user, tasks]);
+  }, [user]);
 
   const streak = useMemo(() => {
      if (sessionLogs.length === 0) return 0;
@@ -1228,38 +1289,37 @@ export default function App() {
            <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" />
 
            <div className="space-y-3">
-             <button 
-               onClick={() => signInWithPopup(auth, googleProvider).then(async (result) => {
-                  if (result.user) {
-                     const uDoc = doc(db, 'users', result.user.uid);
-                     const snap = await getDoc(uDoc);
-                     if (snap.exists() && examPreference !== 'None') {
-                        await updateDoc(uDoc, { examPreference }).catch(() => {});
-                     }
-                  }
-               }).catch(e => {
-                  console.error("Login failed", e);
-               })}
-               className="w-full h-16 bg-white text-black font-black uppercase tracking-widest text-[10px] rounded-2xl flex items-center justify-center gap-4 active:scale-95 transition-all shadow-xl shadow-white/5"
-             >
-               <UserIcon className="w-4 h-4" />
-               Authorize with Cloud
-             </button>
-             
-             <button 
-               onClick={() => signInAnonymously(auth).then(async (result) => {
-                  if (result.user) {
-                     const uDoc = doc(db, 'users', result.user.uid);
-                     const snap = await getDoc(uDoc);
-                     if (snap.exists() && examPreference !== 'None') {
-                        await updateDoc(uDoc, { examPreference }).catch(() => {});
-                     }
-                  }
-               })}
-               className="w-full h-16 bg-zinc-900 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl active:scale-95 transition-all outline-none border border-white/5 hover:bg-zinc-800"
-             >
-               Enter as Ghost
-             </button>
+              {authError && (
+                <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-[10px] text-red-500 font-bold uppercase tracking-wider text-center">
+                  {authError}
+                </div>
+              )}
+              <button 
+                onClick={handleGoogleLogin}
+                disabled={isAuthenticating}
+                className={cn(
+                  "w-full h-16 bg-white text-black font-black uppercase tracking-widest text-[10px] rounded-2xl flex items-center justify-center gap-4 active:scale-95 transition-all shadow-xl shadow-white/5",
+                  isAuthenticating && "opacity-70 cursor-not-allowed"
+                )}
+              >
+                {isAuthenticating ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-black" />
+                ) : (
+                  <UserIcon className="w-4 h-4" />
+                )}
+                {isAuthenticating ? "Authenticating..." : "Authorize with Cloud"}
+              </button>
+              
+              <button 
+                onClick={handleAnonymousLogin}
+                disabled={isAuthenticating}
+                className={cn(
+                  "w-full h-16 bg-zinc-900 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl active:scale-95 transition-all outline-none border border-white/5 hover:bg-zinc-800",
+                  isAuthenticating && "opacity-70 cursor-not-allowed"
+                )}
+              >
+                {isAuthenticating ? "WAIT..." : "Enter as Ghost"}
+              </button>
            </div>
         </div>
         
@@ -1290,6 +1350,25 @@ export default function App() {
 
       <div className="cinematic-vignette" />
       <CustomCursor />
+      
+      <AnimatePresence>
+        {isSimpleTimerMode && (
+          <SimpleTimer 
+            timeLeft={timeLeft}
+            isRunning={isRunning}
+            mode={mode}
+            intention={sessionIntention}
+            onToggle={() => setIsRunning(!isRunning)}
+            onReset={() => {
+               setIsRunning(false);
+               const base = mode === 'study' ? (profile?.settings?.workDuration || 25) : (profile?.settings?.breakDuration || 5);
+               setTimeLeft(base * 60);
+            }}
+            onClose={() => setIsSimpleTimerMode(false)}
+          />
+        )}
+      </AnimatePresence>
+
       <AnimatePresence mode="wait">
         {view === 'cinematic' ? (
           <motion.div 
@@ -1301,28 +1380,6 @@ export default function App() {
             className="relative z-10"
           >
             <HeroSection onExplore={handleDashboardTransition} />
-            <div className="mt-4 px-6">
-                <DeveloperSection />
-            </div>
-            <StorySection onExplore={handleDashboardTransition} />
-            <HabitsSection
-              habits={habits}
-              onAdd={() => setIsAddHabitModalOpen(true)}
-              onMark={async (id) => {
-                 if(!user) return;
-                 const h = habits.find(habit => habit.id === id);
-                 if(!h) return;
-                 const today = format(new Date(), 'yyyy-MM-dd');
-                 if(h.completedDates?.includes(today)) return;
-                 await updateDoc(doc(db, 'users', user.uid, 'habits', id), {
-                   completedDates: [...(h.completedDates || []), today],
-                   streak: increment(1)
-                 });
-                 if (typeof window !== 'undefined' && window.navigator.vibrate) window.navigator.vibrate([100, 100, 100]);
-                 setStreakAchieved((h.streak || 0) + 1);
-              }}
-              onDelete={deleteHabit}
-            />
           </motion.div>
         ) : (
           <motion.div 
@@ -1765,15 +1822,19 @@ export default function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="relative flex flex-col items-center pt-2 md:pt-4 px-4 w-full h-full max-w-lg mx-auto"
+              className="relative w-full h-full min-h-[calc(100vh-140px)]"
             >
-              <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
+              {/* Full Screen Background for Timer */}
+              <div className={cn("fixed inset-0 z-0 pointer-events-none bg-[#05070d]", !isFocusMode && "md:ml-64")}>
                 <FireBreathingScene isRunning={isRunning} intensity={mode === 'study' ? 0.9 : 0.2} />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#05070d] via-transparent to-[#05070d] opacity-90" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#05070d] via-transparent to-[#05070d] opacity-70" />
+                {/* Lighter overlay for better animation visibility */}
+                <div className="absolute inset-0 bg-black/20 backdrop-blur-[1px]" />
               </div>
               
-              {/* Mode Tabs */}
-              {!isFocusMode && (
+              <div className="relative z-10 flex flex-col items-center pt-2 md:pt-4 px-4 w-full h-full max-w-lg mx-auto">
+                {/* Mode Tabs */}
+                {!isFocusMode && (
                 <div id="t-mode-tabs" className="relative z-[60] flex gap-2 md:gap-4 p-1.5 md:p-2 bg-white/5 rounded-2xl border border-white/10 mb-8 md:mb-12 backdrop-blur-md">
                   <button 
                     className={cn(
@@ -1792,6 +1853,16 @@ export default function App() {
                     onClick={() => { playWhoosh(); setMode('shortBreak'); setTimeLeft((profile?.settings?.breakDuration || 5) * 60); setIsRunning(false); setSessionStartTime(null); setCurrentSessionSeconds(0); }}
                   >
                     <span>REST</span>
+                  </button>
+                  <button 
+                    className="px-6 md:px-10 py-2 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all bg-white/10 text-white/80 hover:bg-white hover:text-black border border-white/20 active:scale-95"
+                    onClick={(e) => { 
+                      playWhoosh(); 
+                      setIsSimpleTimerMode(true);
+                      window.dispatchEvent(new CustomEvent('app-touch-spark', { detail: { x: e.clientX, y: e.clientY } }));
+                    }}
+                  >
+                    <span>SIMPLE MODE </span>
                   </button>
                 </div>
               )}
@@ -1826,49 +1897,29 @@ export default function App() {
                         <stop offset="100%" stopColor={mode === 'study' ? '#fde047' : '#60a5fa'}/>
                       </linearGradient>
                     </defs>
-                    {/* Ring background circle decoration */}
+                    {/* Circular frame rings */}
+                    <circle className="opacity-40 fill-none stroke-[1.5] origin-center animate-pulse" cx="160" cy="160" r="158" stroke={mode === 'study' ? '#ea580c' : '#3b82f6'} />
+                    <circle className="opacity-10 fill-none stroke-[2] origin-center" cx="160" cy="160" r="152" stroke="white" strokeDasharray="10 20" />
                     <motion.circle 
-                        className={cn("ring-deco fill-none stroke-[8] md:stroke-[10] origin-center opacity-30")} 
-                        cx="160" cy="160" r="150"
-                        stroke={mode === 'study' ? '#ea580c' : '#3b82f6'}
-                        style={{ transformBox: 'fill-box' }}
-                        animate={isRunning ? { rotate: 360 } : { rotate: 0 }}
-                        transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+                      className="opacity-30 fill-none stroke-[2] origin-center" 
+                      cx="160" cy="160" r="152" 
+                      stroke={mode === 'study' ? '#fde047' : '#60a5fa'} 
+                      strokeDasharray="100 200"
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
                     />
+
                     {/* Progress track */}
-                    <circle className="ring-track opacity-5 fill-none stroke-[8] md:stroke-[10] origin-center" cx="160" cy="160" r="144" transform="rotate(-90,160,160)" stroke="white" style={{ transformBox: 'fill-box' }} />
+                    <circle className="opacity-10 fill-none stroke-[8] md:stroke-[10] origin-center" cx="160" cy="160" r="144" transform="rotate(-90 160 160)" stroke="white" />
                     {/* Animated Progress circle */}
                     <motion.circle 
-                      className="ring-prog fill-none stroke-[10] md:stroke-[12] origin-center" 
+                      className="fill-none stroke-[8] md:stroke-[10] origin-center" 
                       cx="160" cy="160" r="144"
-                      transform="rotate(-90,160,160)"
-                      style={{ transformBox: 'fill-box' }}
+                      transform="rotate(-90 160 160)"
                       strokeDasharray="905"
                       stroke="url(#ringGradAnime)"
                       strokeLinecap="round"
                       animate={{ strokeDashoffset: 905 * (1 - timeLeft / (mode === 'study' ? (profile?.settings?.workDuration || 25) * 60 : (profile?.settings?.breakDuration || 5) * 60)) }}
-                    />
-                    {/* Water Breathing Progress Frame */}
-                    <motion.circle 
-                      cx="160" cy="160" r="150"
-                      className="fill-none animate-water-swirl origin-center"
-                      stroke="#3b82f6"
-                      strokeWidth="4"
-                      strokeDasharray="942"
-                      strokeDashoffset={942 * (1 - pomodoroProgress / 100)}
-                      strokeLinecap="round"
-                      style={{ opacity: 0.6, transform: 'rotate(-90deg)', transformBox: 'fill-box' }}
-                    />
-                    {/* Inner Water Ring */}
-                    <motion.circle 
-                      cx="160" cy="160" r="150"
-                      className="fill-none opacity-20 origin-center"
-                      stroke="#60a5fa"
-                      strokeWidth="2"
-                      strokeDasharray="10 20"
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-                      style={{ transformBox: 'fill-box' }}
                     />
                   </svg>
 
@@ -2002,15 +2053,19 @@ export default function App() {
                     <RotateCcw className="w-5 h-5 md:w-6 md:h-6" />
                   </button>
                 )}
-                <button 
-                  onClick={toggleTimer}
-                  className={cn(
-                    "w-20 h-20 md:w-24 md:h-24 rounded-[2.2rem] md:rounded-[2.5rem] flex items-center justify-center transition-all border-4 md:border-8 shadow-2xl relative group overflow-hidden shrink-0",
-                    isRunning 
-                        ? "bg-[#05070d] border-white/10 text-white" 
-                        : "bg-orange-600 border-orange-400 text-white hover:scale-110 shadow-[0_0_40px_rgba(234,88,12,0.5)]"
-                  )}
-                >
+                  <button 
+                    onClick={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      setTouchSparks(prev => [...prev, { id: Date.now(), x: e.clientX, y: e.clientY }]);
+                      toggleTimer();
+                    }}
+                    className={cn(
+                      "w-20 h-20 md:w-24 md:h-24 rounded-[2.2rem] md:rounded-[2.5rem] flex items-center justify-center transition-all border-4 md:border-8 shadow-2xl relative group overflow-hidden shrink-0 active:scale-95",
+                      isRunning 
+                          ? "bg-[#05070d] border-white/10 text-white" 
+                          : "bg-orange-600 border-orange-400 text-white hover:scale-110 shadow-[0_0_40px_rgba(234,88,12,0.5)]"
+                    )}
+                  >
                     {isRunning ? <Pause className="w-8 h-8 md:w-10 md:h-10 fill-current" /> : <Play className="w-8 h-8 md:w-10 md:h-10 fill-current ml-1 md:ml-2" />}
                     {!isRunning && <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/20 to-white/0 animate-shimmer" />}
                 </button>
@@ -2024,9 +2079,33 @@ export default function App() {
                   {isFocusMode ? <Minimize2 className="w-5 h-5 md:w-6 md:h-6" /> : <Maximize2 className="w-5 h-5 md:w-6 md:h-6" />}
                 </button>
               </div>
+              
+            </div>
 
               {/* Overlays */}
               <AnimatePresence>
+                {touchSparks.map(spark => (
+                  <motion.div
+                    key={spark.id}
+                    initial={{ opacity: 1, scale: 0 }}
+                    animate={{ opacity: 0, scale: 2 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.5 }}
+                    style={{ position: 'fixed', left: spark.x, top: spark.y, pointerEvents: 'none', zIndex: 1000 }}
+                    className="flex items-center justify-center -translate-x-1/2 -translate-y-1/2"
+                  >
+                    <div className="absolute w-12 h-12 border-2 border-orange-500 rounded-full animate-ping" />
+                    <div className="flex gap-2">
+                       {[0, 45, 90, 135, 180, 225, 270, 315].map(angle => (
+                         <div 
+                          key={angle}
+                          className="absolute w-1 h-8 bg-orange-500/80 rounded-full"
+                          style={{ transform: `rotate(${angle}deg) translateY(-20px)`, transformOrigin: 'center bottom' }}
+                         />
+                       ))}
+                    </div>
+                  </motion.div>
+                ))}
                 {showScoreCard && (
                   <motion.div 
                     id="score-float"
@@ -3037,7 +3116,13 @@ export default function App() {
     </motion.div>
   )}
 </AnimatePresence>
-<PochitaPet timerRunning={isRunning} mode={mode} />
+          <div 
+            onClick={(e) => {
+              window.dispatchEvent(new CustomEvent('app-touch-spark', { detail: { x: e.clientX, y: e.clientY } }));
+            }}
+          >
+            <PochitaPet timerRunning={isRunning} mode={mode} />
+          </div>
 </div>
 );
 }

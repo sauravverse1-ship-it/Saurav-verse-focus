@@ -10,13 +10,14 @@ interface FireBreathingSceneProps {
 
 const FireParticles: React.FC<{ isRunning: boolean; intensity: number }> = ({ isRunning, intensity }) => {
   const pointsRef = useRef<THREE.Points>(null);
-  const particleCount = isRunning ? 400 : 150; // Reduced count for standard performance
+  const particleCount = isRunning ? 1000 : 300; 
+  const totalSlots = 1000;
 
   const [positions, colors] = useMemo(() => {
-    const pos = new Float32Array(500 * 3); 
-    const col = new Float32Array(500 * 3);
+    const pos = new Float32Array(totalSlots * 3); 
+    const col = new Float32Array(totalSlots * 3);
 
-    for (let i = 0; i < 500; i++) {
+    for (let i = 0; i < totalSlots; i++) {
         const angle = Math.random() * Math.PI * 2;
         const radius = Math.random() * 0.4;
         pos[i * 3] = Math.cos(angle) * radius;
@@ -105,23 +106,56 @@ const EmberCore: React.FC<{ isRunning: boolean }> = ({ isRunning }) => {
     );
 }
 
+const SpeedLines: React.FC<{ isRunning: boolean }> = ({ isRunning }) => {
+  const groupRef = useRef<THREE.Group>(null);
+  const count = 40;
+  
+  const lines = useMemo(() => {
+    return Array.from({ length: count }).map(() => ({
+      position: new THREE.Vector3(
+        (Math.random() - 0.5) * 15,
+        (Math.random() - 0.5) * 15,
+        (Math.random() - 0.5) * 15
+      ),
+      scale: Math.random() * 5 + 2,
+    }));
+  }, []);
+
+  useFrame((state, delta) => {
+    if (!groupRef.current || !isRunning) return;
+    groupRef.current.children.forEach((child, i) => {
+      child.position.y -= delta * 25;
+      if (child.position.y < -10) child.position.y = 10;
+    });
+  });
+
+  if (!isRunning) return null;
+
+  return (
+    <group ref={groupRef}>
+      {lines.map((line, i) => (
+        <mesh key={i} position={line.position} scale={[0.01, line.scale, 0.01]}>
+          <boxGeometry />
+          <meshBasicMaterial color="#ffffff" transparent opacity={0.15} blending={THREE.AdditiveBlending} />
+        </mesh>
+      ))}
+    </group>
+  );
+};
+
 export const FireBreathingScene: React.FC<FireBreathingSceneProps> = ({ isRunning, intensity }) => {
   return (
     <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
       <Canvas camera={{ position: [0, 1, 4], fov: 40 }} gl={{ antialias: false, powerPreference: 'high-performance' }}>
-        <color attach="background" args={['#0a0a0f']} />
-        <ambientLight intensity={0.2} />
-        <pointLight position={[0, 0, 0]} color="#ff4400" intensity={isRunning ? 2 : 0} />
+        <color attach="background" args={['#05070d']} />
+        <ambientLight intensity={0.5} />
         
         <FireParticles isRunning={isRunning} intensity={intensity} />
         <EmberCore isRunning={isRunning} />
+        <SpeedLines isRunning={isRunning} />
         
-        {isRunning && (
-            <>
-              <Sparkles count={20} scale={4} size={1} speed={0.5} color="#ffd166" />
-              <Stars radius={50} depth={20} count={1000} factor={2} saturation={0} fade speed={0.5} />
-            </>
-        )}
+        <Sparkles count={isRunning ? 100 : 30} scale={6} size={0.5} speed={0.8} color={isRunning ? "#ff4400" : "#3b82f6"} />
+        <Stars radius={50} depth={20} count={isRunning ? 2000 : 500} factor={1} saturation={0} fade speed={isRunning ? 1 : 0.2} />
       </Canvas>
     </div>
   );

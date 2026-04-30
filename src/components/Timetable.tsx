@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { AppDB, dbSaveImmediate } from '../lib/appDb';
 import { cn } from '../lib/utils';
 import { gsap } from 'gsap';
-import { GoogleGenAI, Type } from "@google/genai";
 import { ShieldAlert, Brain, Loader2 } from 'lucide-react';
+import { callAIBackend } from '../services/geminiService';
 
 export const Timetable = ({ playSound }: any) => {
     const [slots, setSlots] = useState(AppDB.timetable || []);
@@ -56,10 +56,7 @@ export const Timetable = ({ playSound }: any) => {
         playSound('tap');
 
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
-            const response = await ai.models.generateContent({
-                model: "gemini-3-flash-preview",
-                contents: `Context: You are an AI study assistant. 
+            const rawText = await callAIBackend(`Context: You are an AI study assistant. 
 Input Description: "${aiPrompt}"
 Objective: Create a structured study/work schedule.
 Constraints: 
@@ -68,19 +65,16 @@ Constraints:
 - Output MUST be valid JSON array of objects.
 - Schema: [{ "subject": string, "startTime": string, "endTime": string, "emoji": string, "color": string }]
 - Colors should be high-contrast hex (e.g. #FF5555, #55FF55).
-- Ensure times do not overlap excessively.`,
-                config: {
-                    responseMimeType: "application/json",
-                }
+- Ensure times do not overlap excessively.`, {
+                responseMimeType: "application/json",
             });
 
-            const rawText = response.text || "[]";
             let generatedSlots = [];
             try {
-                generatedSlots = JSON.parse(rawText);
+                generatedSlots = JSON.parse(rawText || "[]");
             } catch (e) {
                 // If it fails, try cleaning possible markdown
-                const clean = rawText.replace(/```json|```/g, "").trim();
+                const clean = (rawText || "").replace(/```json|```/g, "").trim();
                 generatedSlots = JSON.parse(clean || "[]");
             }
             
