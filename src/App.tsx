@@ -216,13 +216,29 @@ export default function App() {
 
   useEffect(() => {
     const handleSpark = (e: any) => {
-      setTouchSparks(s => [...s, { id: Date.now(), x: e.detail.x, y: e.detail.y }]);
+      // Ignore interactive elements
+      if (e.target instanceof Element && e.target.closest('button, a, input, nav')) return;
+      
+      // If triggered via custom event, use detail. If click, use clientX/Y
+      const targetX = e.detail?.x ?? e.clientX ?? (e.touches?.[0]?.clientX);
+      const targetY = e.detail?.y ?? e.clientY ?? (e.touches?.[0]?.clientY);
+      
+      if (targetX === undefined || targetY === undefined || isNaN(targetX) || isNaN(targetY)) return;
+      
+      const id = Date.now() + Math.random();
+      setTouchSparks(s => [...s, { id, x: targetX, y: targetY }]);
       setTimeout(() => {
-        setTouchSparks(s => s.slice(1));
+        setTouchSparks(s => s.filter(spark => spark.id !== id));
       }, 600);
     };
+    
     window.addEventListener('app-touch-spark', handleSpark);
-    return () => window.removeEventListener('app-touch-spark', handleSpark);
+    window.addEventListener('pointerdown', handleSpark); // Global listener
+    
+    return () => {
+      window.removeEventListener('app-touch-spark', handleSpark);
+      window.removeEventListener('pointerdown', handleSpark);
+    };
   }, []);
 
   const handleDashboardTransition = () => {
@@ -274,7 +290,12 @@ export default function App() {
 
   // AI Coach State
   const [isCoachOpen, setIsCoachOpen] = useState(false);
-  const [coachMessages, setCoachMessages] = useState<{ role: 'user' | 'ai', text: string, habitSuggestions?: {title: string, icon: string, description: string}[] }[]>([
+  const [coachMessages, setCoachMessages] = useState<{ 
+    role: 'user' | 'ai', 
+    text: string, 
+    habitSuggestions?: {title: string, icon: string, description: string}[],
+    directives?: string[]
+  }[]>([
     { role: 'ai', text: 'Quantum systems initialized. Ready to grind? I have analyzed your schedule for 2027.' }
   ]);
   const [isAiTyping, setIsAiTyping] = useState(false);
@@ -295,6 +316,7 @@ export default function App() {
   // Timer State
   const [timeLeft, setTimeLeft] = useState(50 * 60);
   const [isRunning, setIsRunning] = useState(false);
+  const [sessionFinished, setSessionFinished] = useState(false);
   const [mode, setMode] = useState<'study' | 'shortBreak' | 'longBreak'>('study');
   const [sessionCount, setSessionCount] = useState(0);
   const [cycleCount, setCycleCount] = useState(0);
@@ -316,6 +338,7 @@ export default function App() {
   const [streakAchieved, setStreakAchieved] = useState<number | null>(null);
   const [taskSortKey, setTaskSortKey] = useState<'deadline' | 'priority' | 'urgent'>('priority');
   const [sessionIntention, setSessionIntention] = useState("");
+  const [intentionError, setIntentionError] = useState('');
   const [showIntentionInput, setShowIntentionInput] = useState(false);
   const [distractions, setDistractions] = useState<number>(0);
   const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
@@ -761,6 +784,8 @@ export default function App() {
     isCompletingSessionRef.current = true;
     
     setIsRunning(false);
+    setSessionFinished(true);
+    setTimeout(() => setSessionFinished(false), 5000);
     const score = calculateFocusScore();
     setFocusScore(score);
     
@@ -1168,19 +1193,32 @@ export default function App() {
     const context = {
       profile,
       pendingTasks: tasks.filter(t => !t.completed).length,
-      habitStreak: habits.reduce((acc, h) => Math.max(acc, h.streak), 0)
+      tasks: tasks.filter(t => !t.completed).map(t => ({ title: t.title, priority: t.priority })),
+      habitStreak: habits.reduce((acc, h) => Math.max(acc, h.streak), 0),
+      sessionCount: sessionLogs.length
     };
 
-    const response = await getAICoachResponse(message, context);
-    
-    // Check if the user is asking for suggestions
-    let habitSuggestions = undefined;
-    if (message.toLowerCase().includes('habit') || message.toLowerCase().includes('suggest')) {
-      habitSuggestions = await getAIHabitSuggestions(context);
-    }
+    try {
+        let text = '';
+        let habitSuggestions = undefined;
+        let directives = undefined;
 
-    setCoachMessages(prev => [...prev, { role: 'ai', text: response || '', habitSuggestions }]);
-    setIsAiTyping(false);
+        if (message.toLowerCase().includes('directives') || message.toLowerCase().includes('assessment')) {
+            directives = await getAIProductivityDirectives(context);
+            text = "Sector analyzed. Here are your high-priority survival directives:";
+        } else if (message.toLowerCase().includes('habit') || message.toLowerCase().includes('suggest')) {
+            habitSuggestions = await getAIHabitSuggestions(context);
+            text = "Based on your combat record, I've drafted these survival protocols:";
+        } else {
+            text = await getAICoachResponse(message, context) || '';
+        }
+
+        setCoachMessages(prev => [...prev, { role: 'ai', text, habitSuggestions, directives }]);
+    } catch (error) {
+        setCoachMessages(prev => [...prev, { role: 'ai', text: "HQ comms disrupted. Rely on your base protocols." }]);
+    } finally {
+        setIsAiTyping(false);
+    }
   };
 
   // --- Health Actions ---
@@ -2091,7 +2129,7 @@ export default function App() {
                     animate={{ opacity: 0, scale: 2 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.5 }}
-                    style={{ position: 'fixed', left: spark.x, top: spark.y, pointerEvents: 'none', zIndex: 1000 }}
+                    style={{ position: 'fixed', left: `${spark.x}px`, top: `${spark.y}px`, pointerEvents: 'none', zIndex: 1000 }}
                     className="flex items-center justify-center -translate-x-1/2 -translate-y-1/2"
                   >
                     <div className="absolute w-12 h-12 border-2 border-orange-500 rounded-full animate-ping" />
@@ -2189,10 +2227,30 @@ export default function App() {
                                 type="text" 
                                 placeholder="Enter objective..."
                                 value={sessionIntention}
-                                onChange={(e) => setSessionIntention(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && sessionIntention.length > 2 && (setShowIntentionInput(false), setIsRunning(true), setSessionStartTime(Date.now()), playWhoosh())}
+                                onChange={(e) => {
+                                    setSessionIntention(e.target.value);
+                                    if (intentionError) setIntentionError('');
+                                }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        const trimmed = sessionIntention.trim();
+                                        if (trimmed.length < 3) {
+                                            setIntentionError("Mission title must be at least 3 characters.");
+                                            return;
+                                        }
+                                        if (trimmed.length > 50) {
+                                            setIntentionError("Mission title is too long (max 50 chars).");
+                                            return;
+                                        }
+                                        setShowIntentionInput(false);                
+                                        setIsRunning(true);                
+                                        setSessionStartTime(Date.now());                
+                                        playWhoosh();
+                                    }
+                                }}
                                 className="w-full bg-white/5 border-2 border-white/10 px-6 py-5 rounded-[2rem] text-xl font-black italic text-white focus:border-orange-500/50 focus:outline-none transition-all placeholder:text-white/10 text-center"
                             />
+                            {intentionError && <p className="text-red-500 text-xs mt-2 text-center">{intentionError}</p>}
                             <div className="absolute inset-0 pointer-events-none rounded-[2rem] border border-orange-500/5 animate-pulse" />
                           </div>
 
@@ -3006,6 +3064,16 @@ export default function App() {
                   {m.role === 'ai' ? (
                      <div className="bg-surface-variant/50 border border-outline/10 p-4 rounded-3xl">
                        <p className="text-sm leading-relaxed whitespace-pre-wrap">{m.text}</p>
+                       {m.directives && m.directives.length > 0 && (
+                         <div className="mt-4 flex flex-col gap-3">
+                           {m.directives.map((directive, dIndex) => (
+                             <div key={dIndex} className="bg-orange-500/10 border border-orange-500/20 p-3 rounded-2xl flex items-center gap-3">
+                               <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(249,115,22,0.8)]" />
+                               <span className="text-xs font-bold text-orange-200 tracking-tight pt-0.5">{directive}</span>
+                             </div>
+                           ))}
+                         </div>
+                       )}
                        {m.habitSuggestions && m.habitSuggestions.length > 0 && (
                          <div className="mt-4 flex flex-col gap-3">
                            {m.habitSuggestions.map((hs, hIndex) => (
@@ -3121,7 +3189,7 @@ export default function App() {
               window.dispatchEvent(new CustomEvent('app-touch-spark', { detail: { x: e.clientX, y: e.clientY } }));
             }}
           >
-            <PochitaPet timerRunning={isRunning} mode={mode} />
+            <PochitaPet timerRunning={isRunning} mode={mode} celebrate={sessionFinished} />
           </div>
 </div>
 );

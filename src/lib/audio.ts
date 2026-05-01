@@ -49,3 +49,51 @@ export function playWhoosh() {
   gain.gain.exponentialRampToValueAtTime(0.0001, AudioCtx.currentTime + 0.4);
   src.start();
 }
+
+export function playPochitaBark() {
+  if (!AudioCtx) return;
+  const now = AudioCtx.currentTime;
+  const osc = AudioCtx.createOscillator();
+  const gain = AudioCtx.createGain();
+  
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(300, now);
+  osc.frequency.exponentialRampToValueAtTime(450, now + 0.05);
+  osc.frequency.exponentialRampToValueAtTime(200, now + 0.15);
+  
+  gain.gain.setValueAtTime(0.1, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+  
+  osc.connect(gain);
+  gain.connect(AudioCtx.destination);
+  
+  osc.start(now);
+  osc.stop(now + 0.15);
+}
+
+export function playPochitaEngine() {
+  if (!AudioCtx) return;
+  const now = AudioCtx.currentTime;
+  const duration = 0.5;
+  const osc = AudioCtx.createOscillator();
+  const gain = AudioCtx.createGain();
+  const filter = AudioCtx.createBiquadFilter();
+
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(60, now);
+  osc.frequency.linearRampToValueAtTime(100, now + duration);
+
+  filter.type = 'lowpass';
+  filter.frequency.setValueAtTime(800, now);
+
+  gain.gain.setValueAtTime(0, now);
+  gain.gain.linearRampToValueAtTime(0.08, now + 0.1);
+  gain.gain.linearRampToValueAtTime(0, now + duration);
+
+  osc.connect(filter);
+  filter.connect(gain);
+  gain.connect(AudioCtx.destination);
+
+  osc.start(now);
+  osc.stop(now + duration);
+}

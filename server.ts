@@ -29,44 +29,35 @@ async function startServer() {
 
   app.post("/api/ai/generate", async (req, res) => {
     try {
-      const { prompt, systemInstruction, model = "gemini-2.5-flash", responseMimeType } = req.body;
+      const { prompt, systemInstruction, model = "gemini-2.0-flash", responseMimeType } = req.body;
       
-      const ai = getAI();
-      if (!ai) {
+      const genAI = getAI();
+      if (!genAI) {
         return res.status(500).json({ error: "GEMINI_API_KEY not configured on server" });
       }
 
-      const config: any = {};
-      if (systemInstruction) config.systemInstruction = systemInstruction;
+      const generationConfig: any = {};
       if (responseMimeType) {
-        config.responseMimeType = responseMimeType;
-        if (responseMimeType === "application/json") {
-            config.responseSchema = {
-                type: "array",
-                items: {
-                    type: "object",
-                    properties: {
-                        title: { type: "string" },
-                        icon: { type: "string" },
-                        description: { type: "string" }
-                    },
-                    required: ["title", "icon", "description"]
-                }
-            };
-        }
+        generationConfig.responseMimeType = responseMimeType;
       }
 
-      const response = await ai.models.generateContent({
+      const modelInstance = genAI.getGenerativeModel({ 
         model,
-        contents: prompt,
-        config: Object.keys(config).length > 0 ? config : undefined
+        systemInstruction: systemInstruction ? { role: 'system', parts: [{ text: systemInstruction }] } : undefined
+      });
+
+      const result = await modelInstance.generateContent({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: Object.keys(generationConfig).length > 0 ? generationConfig : undefined
       });
       
-      if (!response || !response.text) {
+      const text = result.response.text();
+      
+      if (!text) {
           throw new Error("Empty response from AI");
       }
 
-      res.json({ text: response.text });
+      res.json({ text });
     } catch (error: any) {
       console.error("AI Proxy Error details:", error);
       res.status(500).json({ error: error.message || "Internal AI Proxy Error" });

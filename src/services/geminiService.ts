@@ -31,7 +31,7 @@ export async function callAIBackend(prompt: string, options: { systemInstruction
       body: JSON.stringify({
         prompt,
         systemInstruction: options.systemInstruction,
-        model: options.model || "gemini-2.5-flash",
+        model: options.model || "gemini-2.0-flash",
         responseMimeType: options.responseMimeType
       })
     });
@@ -105,9 +105,26 @@ export async function getAIHabitSuggestions(context: any): Promise<{title: strin
     });
     
     if (!text) return FALLBACK_HABITS;
-    return JSON.parse(text);
+    const parsed = JSON.parse(text);
+    return Array.isArray(parsed) ? parsed : [];
   } catch (error) {
     console.warn("AI Habit Suggestion Rate Limited/Error, using fallback:", error);
     return FALLBACK_HABITS;
+  }
+}
+
+export async function getAIProductivityDirectives(context: any): Promise<string[]> {
+  try {
+    const text = await callAIBackend("Generate 3 short, punchy personalized productivity directives as a JSON array of strings based on my current tasks, habits, and focus data.", {
+      systemInstruction: SYSTEM_INSTRUCTION + (context ? `\nUser Context: ${JSON.stringify(context)}` : ''),
+      responseMimeType: "application/json",
+    });
+    
+    if (!text) return ["Stay focused.", "Master your tasks.", "Finish the mission."];
+    const parsed = JSON.parse(text);
+    return Array.isArray(parsed) ? parsed : ["Stay focused.", "Master your tasks.", "Finish the mission."];
+  } catch (error) {
+    console.warn("AI Directives Error:", error);
+    return ["Stay focused.", "Master your tasks.", "Finish the mission."];
   }
 }
