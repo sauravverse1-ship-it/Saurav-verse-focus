@@ -1,8 +1,9 @@
 {
   "name": "Quantum Focus by Saurav Verse",
-  "description": "A gritty, Chainsaw Man themed productivity survival engine with mission tracking, Pochita companion, and AI Devil Hunter Coaching.",
+  "description": "A gritty, Chainsaw Man themed productivity engine for JEE/NEET aspirants. Features Character Recruitment (Makima, Denji, Power), Devil Contracts with high-stakes penalties, AI Psycho-Analysis, global arenas, reflections journal, and a seasonal rank pass.",
   "requestFramePermissions": [
-    "microphone"
   ],
-  "majorCapabilities": []
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

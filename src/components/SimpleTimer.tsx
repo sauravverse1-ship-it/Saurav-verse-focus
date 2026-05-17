@@ -4,6 +4,8 @@ import { Play, Pause, RotateCcw, X, Target } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { playTick, playWhoosh } from '../lib/audio';
 
+import { Persona } from '../types';
+
 interface SimpleTimerProps {
   timeLeft: number;
   isRunning: boolean;
@@ -11,7 +13,9 @@ interface SimpleTimerProps {
   onReset: () => void;
   onClose: () => void;
   mode: 'study' | 'shortBreak' | 'longBreak';
+  totalTime: number;
   intention?: string;
+  persona?: Persona | null;
 }
 
 export const SimpleTimer: React.FC<SimpleTimerProps> = ({ 
@@ -21,7 +25,9 @@ export const SimpleTimer: React.FC<SimpleTimerProps> = ({
   onReset, 
   onClose,
   mode,
-  intention
+  totalTime,
+  intention,
+  persona
 }) => {
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -39,38 +45,96 @@ export const SimpleTimer: React.FC<SimpleTimerProps> = ({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center p-6"
+      className={cn(
+        "fixed inset-0 z-[100] flex flex-col items-center justify-center p-6 transition-all duration-1000",
+        "bg-[#05070a]",
+        persona && isRunning && "transition-colors duration-1000"
+      )}
+      style={persona && isRunning ? { backgroundColor: `${persona.auraColor}15` } : {}}
     >
+      {/* Persona Aura Background */}
+      {persona && isRunning && (
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+           <div className="absolute inset-0 opacity-20" style={{ backgroundImage: `radial-gradient(circle at center, ${persona.auraColor} 0%, transparent 70%)` }} />
+           <motion.div 
+             animate={{ scale: [1, 1.2, 1], opacity: [0.1, 0.3, 0.1] }}
+             transition={{ duration: 4, repeat: Infinity }}
+             className="absolute inset-0 blur-[100px]"
+             style={{ backgroundColor: persona.auraColor }}
+           />
+        </div>
+      )}
+
       {/* Intention display */}
       <AnimatePresence>
-        {intention && (
+        {(intention || (persona && isRunning)) && (
           <motion.div 
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="absolute top-12 left-1/2 -translate-x-1/2 flex items-center gap-3 px-4 py-2 bg-white/5 border border-white/10 rounded-full"
+            className="absolute top-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 z-20"
           >
-            <Target className="w-4 h-4 text-orange-500" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-white/70 italic">
-              MISSION: {intention}
-            </span>
+            {intention && (
+              <div className="flex items-center gap-3 px-4 py-2 bg-white/5 border border-white/10 rounded-full">
+                <Target className="w-4 h-4 text-orange-500" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-white/70 italic">
+                  MISSION: {intention}
+                </span>
+              </div>
+            )}
+            {persona && isRunning && (
+               <motion.div 
+                 initial={{ opacity: 0, scale: 0.9 }}
+                 animate={{ opacity: 1, scale: 1 }}
+                 className="px-6 py-2 bg-md-primary/20 border border-md-primary/40 rounded-2xl"
+               >
+                  <span className="text-[10px] font-black uppercase tracking-widest text-white italic animate-pulse">
+                    ENTERING {persona.name} MODE
+                  </span>
+               </motion.div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
 
       <button 
         onClick={onClose}
-        className="absolute top-8 right-8 p-3 bg-white/5 hover:bg-white/10 rounded-full text-white/40 hover:text-white transition-all active:scale-90"
+        className="absolute top-8 right-8 p-3 bg-white/5 hover:bg-white/10 rounded-full text-white/40 hover:text-white transition-all active:scale-90 z-20"
       >
         <X className="w-6 h-6" />
       </button>
 
-      <div className="flex flex-col items-center gap-12 w-full max-w-2xl">
-        <div className="flex gap-4 md:gap-8 items-center justify-center">
-          <FlipUnit value={minutes} label="MINUTES" />
-          <div className="text-6xl md:text-8xl font-black text-white/20 pt-4 md:pt-8">:</div>
-          <FlipUnit value={seconds} label="SECONDS" />
+      <div className="flex flex-col items-center gap-12 w-full max-w-2xl relative z-10">
+        <div className="relative flex items-center justify-center w-80 h-80 md:w-[450px] md:h-[450px]">
+           {/* Progress Ring */}
+           <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 100 100">
+             <circle 
+               cx="50" cy="50" r="48" 
+               className="fill-none stroke-white/5 stroke-[2]" 
+             />
+             <motion.circle 
+               cx="50" cy="50" r="48" 
+               className="fill-none stroke-[2]"
+               stroke={persona?.auraColor || (mode === 'study' ? '#f97316' : '#3b82f6')}
+               strokeDasharray="301.4"
+               animate={{ strokeDashoffset: 301.4 * (1 - timeLeft / totalTime) }}
+               transition={{ duration: 1, ease: "linear" }}
+               strokeLinecap="round"
+             />
+           </svg>
+
+           <div className="flex gap-4 md:gap-8 items-center justify-center relative z-10">
+             <FlipUnit value={minutes} label="MINUTES" />
+             <div className="text-6xl md:text-8xl font-black text-white/20 pt-4 md:pt-8">:</div>
+             <FlipUnit value={seconds} label="SECONDS" />
+           </div>
         </div>
+
+        {persona && isRunning && (
+           <p className="text-sm font-serif italic text-white/60 tracking-wide animate-fade-in">
+             "{persona.signaturePhrase}"
+           </p>
+        )}
 
         <div className="flex items-center gap-6">
           <button 
@@ -92,10 +156,13 @@ export const SimpleTimer: React.FC<SimpleTimerProps> = ({
                "p-8 rounded-full transition-all active:scale-95 shadow-[0_0_50px_-10px] flex items-center justify-center",
                isRunning 
                 ? "bg-white text-black shadow-white/20" 
-                : mode === 'study' 
-                   ? "bg-orange-500 text-white shadow-orange-500/40" 
-                   : "bg-blue-500 text-white shadow-blue-500/40"
+                : persona 
+                   ? "bg-md-primary text-md-on-primary" 
+                   : mode === 'study' 
+                      ? "bg-orange-500 text-white shadow-orange-500/40" 
+                      : "bg-blue-500 text-white shadow-blue-500/40"
             )}
+            style={persona && !isRunning ? { backgroundColor: persona.auraColor } : {}}
           >
             {isRunning ? <Pause className="w-10 h-10 fill-current" /> : <Play className="w-10 h-10 fill-current ml-1" />}
           </button>
@@ -104,8 +171,8 @@ export const SimpleTimer: React.FC<SimpleTimerProps> = ({
         <div className="flex flex-col items-center gap-2 mt-4 text-center">
           <span className={cn(
             "text-xs font-black uppercase tracking-[0.5em] italic",
-            mode === 'study' ? "text-orange-500" : "text-blue-500"
-          )}>
+            persona ? "text-white" : mode === 'study' ? "text-orange-500" : "text-blue-500"
+          )} style={persona ? { color: persona.auraColor } : {}}>
             {mode === 'study' ? 'FOCUS PHASE' : 'RECOVERY PHASE'}
           </span>
           <p className="text-white/20 text-[10px] font-mono animate-pulse">DISTURBANCE LEVELS ZERO</p>

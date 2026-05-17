@@ -3,8 +3,14 @@ import { UserProfile, Achievement } from '../types';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from './firebase';
 import { RANKS, ACHIEVEMENTS, getRank } from './gamification';
+import { ResourceInventory, LegacyMilestone } from '../types';
 
-export function useGamification(profile: UserProfile | null, setProfile: (p: UserProfile | ((prev: UserProfile) => UserProfile)) => void) {
+export function useGamification(
+  profile: UserProfile | null, 
+  setProfile: (p: UserProfile | ((prev: UserProfile) => UserProfile)) => void,
+  awardResources: (res: Partial<ResourceInventory>) => Promise<void>,
+  addLegacyMilestone: (milestone: Omit<LegacyMilestone, 'id' | 'date'>) => Promise<void>
+) {
   const [xpLabels, setXpLabels] = useState<{ id: number; xp: number; x: number; y: number; bonus?: string; multiplier?: number }[]>([]);
   const [rankUp, setRankUp] = useState<{ oldRank: string; newRank: string } | null>(null);
   const [unlockedAchievement, setUnlockedAchievement] = useState<Achievement | null>(null);
@@ -29,20 +35,28 @@ export function useGamification(profile: UserProfile | null, setProfile: (p: Use
     return () => clearInterval(interval);
   }, []);
 
-  const awardXP = useCallback(async (amount: number, type: 'focus' | 'tasks' | 'habits' | 'achievement' | 'challenge_complete', labelText?: string) => {
+  const awardXP = useCallback(async (amount: number, type: 'focus' | 'tasks' | 'habits' | 'achievement' | 'challenge_complete' | 'special' | 'study', labelText?: string) => {
     const currentProfile = profileRef.current;
     if (!currentProfile || !currentProfile.uid) return;
+    
+    // Normalize type for internal logic
+    const normalizedType = (type === 'special' || type === 'study') ? 'achievement' : type;
 
-    // 1. Calculate Multiplier (Streak)
-    let streakMultiplier = 1;
-    if (currentProfile.streak >= 7) streakMultiplier = 1.25;
-    if (currentProfile.streak >= 14) streakMultiplier = 1.5;
-    if (currentProfile.streak >= 30) streakMultiplier = 2.0;
+    // 1. Calculate Multiplier (Streak & Characters)
+    let totalMultiplier = 1;
+
+    // Streak Multipliers
+    if (currentProfile.streak >= 7) totalMultiplier *= 1.25;
+    if (currentProfile.streak >= 14) totalMultiplier *= 1.5;
+    if (currentProfile.streak >= 30) totalMultiplier *= 2.0;
+
+    // Character Buffs
+    if (currentProfile.activeCharacterId === 'makima') {
+      totalMultiplier *= 1.20; // +20% Controls everything
+    }
 
     // Apply combo multiplier from current combo state
-    // Note: We used a functional update for setCombo below, but we need the value now.
-    // For simplicity, we'll use the combo state directly as it updates fast enough for human interactions.
-    const totalMultiplier = streakMultiplier * combo.multiplier;
+    totalMultiplier *= combo.multiplier;
     const finalAmount = Math.round(amount * totalMultiplier);
 
     // 2. Update Local State for Animation
@@ -64,7 +78,7 @@ export function useGamification(profile: UserProfile | null, setProfile: (p: Use
     }, 2000);
 
     // 3. Update Combo
-    if (type !== 'achievement' && type !== 'challenge_complete') {
+    if (normalizedType !== 'achievement' && normalizedType !== 'challenge_complete') {
       setCombo(prev => {
         const now = Date.now();
         const newCount = prev.count + 1;
@@ -79,7 +93,7 @@ export function useGamification(profile: UserProfile | null, setProfile: (p: Use
     let bonusXP = 0;
     let bonusLabel = labelText;
 
-    if (type === 'focus') {
+    if (normalizedType === 'focus') {
       if (hours < 9) {
         bonusXP += 30; // Early Bird
         bonusLabel = 'EARLY BIRD (+30)';
@@ -103,7 +117,7 @@ export function useGamification(profile: UserProfile | null, setProfile: (p: Use
       if (challenge.completed) return challenge;
       
       let progressInc = 0;
-      if (challenge.type === type) {
+      if (challenge.type === normalizedType) {
         progressInc = 1;
       }
 
@@ -130,7 +144,7 @@ export function useGamification(profile: UserProfile | null, setProfile: (p: Use
       if (newUnlockedAchievements.includes(ach.id)) return;
 
       let achieved = false;
-      if (ach.id === 'first_blood' && type === 'focus') achieved = true;
+      if (ach.id === 'first_blood' && normalizedType === 'focus') achieved = true;
       if (ach.id === 'deep_diver' && (currentProfile.pomodorosCompleted || 0) >= 10) achieved = true;
       if (ach.id === 'centurion' && (currentProfile.pomodorosCompleted || 0) >= 100) achieved = true;
       if (ach.id === 'rank_master' && newRankObj.id === 'master') achieved = true;
@@ -140,6 +154,12 @@ export function useGamification(profile: UserProfile | null, setProfile: (p: Use
       if (achieved) {
         newUnlockedAchievements.push(ach.id);
         setUnlockedAchievement(ach);
+        awardResources({ dust: 1 }); // Award Star Dust
+        addLegacyMilestone({
+          title: `Achievement Unlocked: ${ach.name}`,
+          description: ach.description,
+          type: 'achievement'
+        });
         setTimeout(() => awardXP(ach.xpReward, 'achievement', `UNLOCK: ${ach.name}`), 1800);
       }
     });
@@ -149,11 +169,22 @@ export function useGamification(profile: UserProfile | null, setProfile: (p: Use
     const wasAllCompletedBefore = (currentProfile.dailyChallenges || []).every(c => c.completed);
     if (allCompletedNow && !wasAllCompletedBefore) {
       setTimeout(() => awardXP(300, 'challenge_complete', 'DAILY TRIFECTA BONUS'), 1500);
+      addLegacyMilestone({
+        title: 'Daily Trifecta Secured',
+        description: 'Completed all daily challenges in record time.',
+        type: 'milestone'
+      });
     }
 
     // Rank Up detection
     if (oldRankObj.id !== newRankObj.id) {
       setRankUp({ oldRank: oldRankObj.name, newRank: newRankObj.name });
+      addLegacyMilestone({
+        title: `Rank Up: ${newRankObj.name}`,
+        description: `Ascended from ${oldRankObj.name} to higher dimensions.`,
+        statValue: newRankObj.name,
+        type: 'rank'
+      });
     }
 
     // Update Firestore

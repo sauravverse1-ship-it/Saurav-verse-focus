@@ -72,6 +72,24 @@
         "xpEarned": { "type": "number" }
       },
       "required": ["id", "userId", "duration", "timestamp", "xpEarned"]
+    },
+    "StudyRoom": {
+      "title": "Study Room",
+      "description": "Multiplayer focus room for real-time collaboration.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "isPrivate": { "type": "boolean" },
+        "password": { "type": "string" },
+        "mode": { "type": "string" },
+        "maxMembers": { "type": "number" },
+        "status": { "type": "string" },
+        "hostId": { "type": "string" },
+        "members": { "type": "array" },
+        "messages": { "type": "array" }
+      },
+      "required": ["id", "name", "isPrivate", "mode", "maxMembers", "hostId", "members"]
     }
   },
   "firestore": {
@@ -90,6 +108,10 @@
     "/users/{userId}/habits/{habitId}": {
       "schema": "Habit",
       "description": "User habits"
+    },
+    "/rooms/{roomId}": {
+      "schema": "StudyRoom",
+      "description": "Global study rooms"
     }
   }
 }

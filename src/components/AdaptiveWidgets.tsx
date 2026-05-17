@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Play, Pause, Timer, BookOpen, Coffee, Zap, Clock, Target, Flame, Wind, Swords } from 'lucide-react';
+import { Play, Pause, Timer, BookOpen, Coffee, Zap, Clock, Target, Flame, Wind, Swords, Camera } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { FireBreathingScene } from './FireBreathingScene';
 
@@ -267,13 +267,56 @@ export const QuickActionsWidget: React.FC<AdaptiveWidgetsProps> = ({ onToggleTim
   );
 };
 
-export const AdaptiveWidgetGrid: React.FC<AdaptiveWidgetsProps & { tasks: any[] }> = (props) => {
+export const BiometricWidget: React.FC<AdaptiveWidgetsProps> = () => {
+  const hour = new Date().getHours();
+  const readiness = hour >= 6 && hour <= 10 ? 95 : (hour >= 11 && hour <= 16 ? 70 : (hour >= 17 && hour <= 21 ? 85 : 40));
+  const advice = readiness > 80 ? "PEAK FOCUS WINDOW" : (readiness > 60 ? "MODERATE FOCUS: ADD WATER" : "LOW READINESS: REST RECOMMENDED");
+
+  return (
+    <Widget title="Biometric Readiness" size="medium" gradient="from-teal-600 to-blue-600">
+       <div className="flex items-center gap-6">
+          <div className="relative w-16 h-16 flex items-center justify-center">
+             <motion.div 
+               animate={{ scale: [1, 1.1, 1], opacity: [0.3, 0.6, 0.3] }}
+               transition={{ duration: 2, repeat: Infinity }}
+               className="absolute inset-0 bg-teal-500 rounded-full blur-xl"
+             />
+             <div className="relative z-10 text-2xl font-black italic text-white">{readiness}%</div>
+          </div>
+          <div className="flex flex-col">
+             <span className="text-[10px] font-black text-teal-400 uppercase tracking-widest">{advice}</span>
+             <p className="text-[8px] text-white/40 uppercase font-black mt-1 tracking-wider leading-tight">Syncing Circadian Pattern v4.2...</p>
+          </div>
+       </div>
+    </Widget>
+  );
+};
+
+export const CaptureSnapshotWidget: React.FC<{ onCapture: () => void }> = ({ onCapture }) => {
+  return (
+    <Widget title="Study Snapshot" size="small" gradient="from-purple-600 to-pink-600">
+       <button 
+        onClick={onCapture}
+        className="flex flex-col items-center gap-2 group/snap"
+       >
+         <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center transition-all group-hover/snap:bg-white group-hover/snap:text-black shadow-lg">
+           <Camera className="w-6 h-6" />
+         </div>
+         <span className="text-[10px] font-black uppercase tracking-widest opacity-60 group-hover/snap:opacity-100 italic transition-opacity">Capture Reality</span>
+       </button>
+    </Widget>
+  );
+};
+
+export const AdaptiveWidgetGrid: React.FC<AdaptiveWidgetsProps & { tasks: any[], onCaptureSnapshot: () => void }> = (props) => {
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4">
       <TimerWidget {...props} />
       <StatusWidget {...props} />
       <QuickActionsWidget {...props} />
       <TaskWidget {...props} />
+      <BiometricWidget {...props} />
+      <CaptureSnapshotWidget onCapture={props.onCaptureSnapshot} />
     </div>
   );
 };

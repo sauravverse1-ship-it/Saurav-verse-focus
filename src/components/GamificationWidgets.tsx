@@ -27,7 +27,7 @@ export const StreakWidget = ({ profile, mobile }: { profile: UserProfile | null,
             initial={{ opacity: 0 }}
             animate={{ opacity: [0.1, 0.3, 0.1] }}
             transition={{ duration: 4, repeat: Infinity }}
-            className="absolute inset-[-20px] bg-amber-500/20 blur-[40px] rounded-full z-0"
+            className="absolute inset-[-20px] bg-[radial-gradient(circle_at_center,rgba(245,158,11,0.2),transparent_70%)] rounded-full z-0 pointer-events-none"
           />
         )}
         {profile.streak >= 100 && (
@@ -35,7 +35,7 @@ export const StreakWidget = ({ profile, mobile }: { profile: UserProfile | null,
             initial={{ opacity: 0 }}
             animate={{ opacity: [0.2, 0.5, 0.2] }}
             transition={{ duration: 2, repeat: Infinity }}
-            className="absolute inset-[-40px] bg-red-600/30 blur-[60px] rounded-full z-0"
+            className="absolute inset-[-40px] bg-[radial-gradient(circle_at_center,rgba(220,38,38,0.3),transparent_70%)] rounded-full z-0 pointer-events-none"
           />
         )}
       </AnimatePresence>

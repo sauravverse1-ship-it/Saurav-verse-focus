@@ -65,6 +65,7 @@ export const HabitsGrid: React.FC<{ habits: Habit[], onMark: (habit: Habit) => v
                     <div className="flex items-center gap-2 mt-1">
                       <Flame className="w-3 h-3 text-amber-500" />
                       <span className="text-[9px] font-bold opacity-60 uppercase">{habit.streak} DAY STREAK</span>
+                      <span className="text-[8px] font-bold opacity-30 uppercase ml-auto">BEST: {habit.streakBest || 0}</span>
                     </div>
                   </div>
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { motion, AnimatePresence } from 'motion/react';
 import { Heart, Zap } from 'lucide-react';
 import { playPochitaBark, playPochitaEngine } from '../lib/audio';
+import { cn } from '../lib/utils';
 
 const MOTIVATIONS = [
   "Keep going! Your dreams are waiting!",
@@ -26,11 +27,20 @@ interface PochitaPetProps {
   timerRunning?: boolean;
   mode?: 'study' | 'shortBreak' | 'longBreak';
   celebrate?: boolean;
+  xp?: number;
+  lastEvent?: { type: 'task_complete' | 'session_start' | 'xp_gain' | 'contract_signed', timestamp: number } | null;
+  activePetId?: string;
 }
 
-export const PochitaPet: React.FC<PochitaPetProps> = ({ timerRunning, mode, celebrate }) => {
+export const PochitaPet: React.FC<PochitaPetProps> = ({ timerRunning, mode, celebrate, xp = 0, lastEvent, activePetId }) => {
   const [position, setPosition] = useState({ x: 50, y: window.innerHeight - 150 });
   const [message, setMessage] = useState<string | null>(null);
+  
+  // Find pet data if not default
+  const isDefaultPochita = !activePetId || activePetId === 'pet_pochita_og';
+  const petImageUrl = activePetId && activePetId !== 'pet_pochita_og' 
+    ? `https://api.dicebear.com/7.x/bottts/svg?seed=${activePetId.replace('pet_', '')}&backgroundColor=${activePetId.includes('dark') ? '212121' : activePetId.includes('kitsune') ? '673ab7' : 'f44336'}`
+    : null;
   const [direction, setDirection] = useState(1); // 1 for right, -1 for left
   const [expression, setExpression] = useState<Expression>('happy');
   const [isMoving, setIsMoving] = useState(false);
@@ -38,6 +48,22 @@ export const PochitaPet: React.FC<PochitaPetProps> = ({ timerRunning, mode, cele
   const [isCelebrating, setIsCelebrating] = useState(false);
   const [petCount, setPetCount] = useState(0);
   const [showHearts, setShowHearts] = useState(false);
+
+  // Level Logic based on XP
+  // Level 1: 0-500 XP (Puppy, small, no chainsaw)
+  // Level 2: 500-2000 XP (Normal size, no chainsaw)
+  // Level 3: 2000-5000 XP (With chainsaw)
+  // Level 4: 5000-15000 XP (Red glow)
+  // Level 5: 15000+ XP (Devil mode, animated glow, dark)
+  
+  const isMobile = window.innerWidth < 768;
+  const level = xp >= 15000 ? 5 : xp >= 5000 ? 4 : xp >= 2000 ? 3 : xp >= 500 ? 2 : 1;
+  const hasChainsaw = level >= 3;
+  const scaleMultiplier = (level === 1 ? 0.7 : level === 5 ? 1.2 : 1) * (isMobile ? 0.6 : 1);
+  const bodyColor = level >= 5 ? '#dc2626' : '#f97316';
+  const glowShadow = level >= 5 ? 'drop-shadow-[0_0_80px_rgba(220,38,38,0.8)] drop-shadow-[0_0_30px_rgba(220,38,38,0.5)]' 
+                   : level >= 4 ? 'drop-shadow-[0_20px_50px_rgba(220,38,38,0.6)]' 
+                   : 'drop-shadow-[0_20px_50px_rgba(249,115,22,0.4)]';
 
   useEffect(() => {
      if (petCount > 0) {
@@ -67,6 +93,41 @@ export const PochitaPet: React.FC<PochitaPetProps> = ({ timerRunning, mode, cele
     }
   }, [timerRunning, mode, isBarking, isCelebrating]);
 
+  useEffect(() => {
+    if (!lastEvent) return;
+
+    const handleEvent = () => {
+        setIsBarking(true);
+        setExpression('bark');
+        playPochitaBark();
+        
+        let msg = "";
+        switch(lastEvent.type) {
+            case 'task_complete':
+                msg = "Woof! Task sliced! Great job!";
+                break;
+            case 'session_start':
+                msg = "Engine revving! Let's hunt some goals!";
+                break;
+            case 'xp_gain':
+                msg = "Grrr! Growing stronger! I like this!";
+                break;
+            case 'contract_signed':
+                msg = "A contract? Don't break it, or there will be a price!";
+                break;
+        }
+        setMessage(msg);
+        
+        if (barkTimeoutRef.current) clearTimeout(barkTimeoutRef.current);
+        barkTimeoutRef.current = setTimeout(() => {
+            setMessage(null);
+            setIsBarking(false);
+        }, 3000);
+    };
+
+    handleEvent();
+  }, [lastEvent]);
+
   const barkTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const moveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -77,25 +138,32 @@ export const PochitaPet: React.FC<PochitaPetProps> = ({ timerRunning, mode, cele
     };
   }, []);
 
+  const positionRef = useRef(position);
+  useEffect(() => {
+    positionRef.current = position;
+  }, [position]);
+
   const movePochita = useCallback(() => {
     // Avoid moving if telling something
     if (message) return;
 
-    const maxX = window.innerWidth - 80;
-    const maxY = window.innerHeight - 80;
+    // Limit random movement to a safer strip to avoid overlapping UI
+    const isMobile = window.innerWidth < 768;
+    const minX = isMobile ? 10 : window.innerWidth - 300;
+    const maxX = isMobile ? window.innerWidth - 60 : window.innerWidth - 60;
+    const maxY = window.innerHeight - (isMobile ? 150 : 120); 
     
     setIsMoving(true);
-    // Use a wider random range to ensure it goes everywhere
-    const nextX = Math.max(40, Math.random() * (maxX - 40));
-    const nextY = Math.max(100, Math.random() * (maxY - 100));
+    const nextX = Math.max(minX, Math.min(maxX, positionRef.current.x + (Math.random() * 60 - 30)));
+    const nextY = Math.max(maxY - 100, Math.min(maxY, positionRef.current.y + (Math.random() * 40 - 20)));
     
-    setDirection(nextX > position.x ? 1 : -1);
+    setDirection(nextX > positionRef.current.x ? 1 : -1);
     setPosition({ x: nextX, y: nextY });
     
     // Smooth transition time (6s)
     if (moveTimeoutRef.current) clearTimeout(moveTimeoutRef.current);
     moveTimeoutRef.current = setTimeout(() => setIsMoving(false), 6000);
-  }, [position.x, position.y, message]);
+  }, [message]);
 
   useEffect(() => {
     // Re-calculate window limits on resize
@@ -242,100 +310,116 @@ export const PochitaPet: React.FC<PochitaPetProps> = ({ timerRunning, mode, cele
             onMouseEnter={() => playPochitaEngine()}
           >
             {/* Pochita SVG */}
-            <motion.svg 
-              width="90" 
-              height="75" 
-              viewBox="0 0 100 85" 
-              className="drop-shadow-[0_20px_50px_rgba(249,115,22,0.4)]"
-            style={{ transform: `scaleX(${direction})` }}
-            animate={{
-                y: isMoving ? [0, -4, 0] : (expression === 'determined' ? [0, -2.5, 0] : [0, -1.5, 0]),
-                scaleY: isMoving ? [1, 0.95, 1] : 1
-            }}
-            transition={{
-                duration: isMoving ? 0.4 : (expression === 'determined' ? 1.5 : 2.5),
-                repeat: Infinity,
-                ease: "easeInOut"
-            }}
-          >
-            {/* Shadow */}
-            <motion.ellipse 
-                cx="50" cy="78" rx="25" ry="4" fill="black" opacity="0.15" 
-                animate={{ rx: isMoving ? 20 : 25, opacity: isMoving ? 0.1 : 0.15 }}
-                transition={{ duration: 0.4, repeat: Infinity }}
-            />
-
-            {/* Body - More Rounded Sausage Shape */}
-            <rect x="20" y="32" width="65" height="42" rx="21" fill="#f97316" />
-            <circle cx="80" cy="53" r="14" fill="#f97316" />
-            
-            {/* Legs */}
-            <motion.rect 
-                animate={{ height: isMoving ? [10, 5, 10] : 8, y: isMoving ? [68, 73, 68] : 70 }}
-                transition={{ repeat: Infinity, duration: 0.2 }}
-                x="32" y="70" width="8" height="8" rx="4" fill="#ea580c" 
-            />
-            <motion.rect 
-                animate={{ height: isMoving ? [5, 10, 5] : 8, y: isMoving ? [73, 68, 73] : 70 }}
-                transition={{ repeat: Infinity, duration: 0.2 }}
-                x="65" y="70" width="8" height="8" rx="4" fill="#ea580c" 
-            />
-            
-            {/* Handle */}
-            <path d="M35 32 Q35 18 55 18 Q72 18 72 32" fill="none" stroke="#475569" strokeWidth="5.5" strokeLinecap="round" />
-            
-            {/* Chainsaw Blade - HEAD */}
-            <motion.g
-                initial={false}
-                animate={{ 
-                    scale: isBarking ? 1.3 : (expression === 'determined' ? 1.1 : 1),
-                    x: isBarking ? 5 : 0,
-                    y: isBarking ? -5 : 0
+            {isDefaultPochita ? (
+              <motion.svg 
+                width="90" 
+                height="75" 
+                viewBox="0 0 100 85" 
+                className={glowShadow}
+                style={{ transform: `scaleX(${direction}) scale(${scaleMultiplier})` }}
+                animate={{
+                    y: isMoving ? [0, -4, 0] : (expression === 'determined' ? [0, -2.5, 0] : [0, -1.5, 0]),
+                    scaleY: isMoving ? [1, 0.95, 1] : 1
                 }}
-                className="origin-[45px_35px]"
-            >
-                <rect x="38" y="5" width="18" height="32" rx="3" fill="#94a3b8" />
-                <path d="M38 18 L24 24 L38 30" fill="#94a3b8" />
-                {/* Teeth Vibration */}
-                <motion.path 
-                    animate={{ x: isBarking || expression === 'determined' ? [-0.5, 0.5, -0.5] : 0 }}
-                    transition={{ repeat: Infinity, duration: 0.05 }}
-                    d="M38 6 L42 2 L42 10 M38 15 L42 11 L42 19 M38 24 L42 20 L42 28" 
-                    stroke="#64748b" strokeWidth="1.5" 
+                transition={{
+                    duration: isMoving ? 0.4 : (expression === 'determined' ? 1.5 : 2.5),
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                }}
+              >
+                {/* Shadow */}
+                <motion.ellipse 
+                    cx="50" cy="78" rx="25" ry="4" fill="black" opacity="0.15" 
+                    animate={{ rx: isMoving ? 20 : 25, opacity: isMoving ? 0.1 : 0.15 }}
+                    transition={{ duration: 0.4, repeat: Infinity }}
                 />
-            </motion.g>
-            
-            {/* Tail (Starter Grip) */}
-            <circle cx="15" cy="53" r="5" fill="black" />
-            <motion.path 
-                animate={{ 
-                    rotate: expression === 'happy' || isBarking ? [0, 45, -45, 0] : [0, 20, 0],
-                }}
-                transition={{ 
-                    repeat: Infinity, 
-                    duration: isBarking ? 0.3 : 2,
-                }}
-                d="M15 53 L5 53" stroke="#1f2937" strokeWidth="3.5" strokeLinecap="round"
-                style={{ originX: '15px', originY: '53px' }}
-            />
 
-            {/* Face */}
-            <g transform="translate(0, 0)">
-                {getEyes()}
-                {/* Cheeks */}
-                <circle cx="70" cy="55" r="4" fill="#fb923c" opacity="0.4" />
-                <circle cx="85" cy="55" r="4" fill="#fb923c" opacity="0.4" />
+                {/* Body - More Rounded Sausage Shape */}
+                <rect x="20" y="32" width="65" height="42" rx="21" fill={bodyColor} />
+                <circle cx="80" cy="53" r="14" fill={bodyColor} />
                 
-                {/* Mouth */}
-                {isBarking ? (
-                    <circle cx="78" cy="62" r="4" fill="black" />
-                ) : (
-                    expression === 'happy' && (
-                        <path d="M74 58 Q78 64 82 58" fill="none" stroke="black" strokeWidth="2" strokeLinecap="round" />
-                    )
+                {/* Legs */}
+                <motion.rect 
+                    animate={{ height: isMoving ? [10, 5, 10] : 8, y: isMoving ? [68, 73, 68] : 70 }}
+                    transition={{ repeat: Infinity, duration: 0.2 }}
+                    x="32" y="70" width="8" height="8" rx="4" fill={level >= 5 ? '#991b1b' : '#ea580c'} 
+                />
+                <motion.rect 
+                    animate={{ height: isMoving ? [5, 10, 5] : 8, y: isMoving ? [73, 68, 73] : 70 }}
+                    transition={{ repeat: Infinity, duration: 0.2 }}
+                    x="65" y="70" width="8" height="8" rx="4" fill={level >= 5 ? '#991b1b' : '#ea580c'} 
+                />
+                
+                {/* Handle */}
+                <path d="M35 32 Q35 18 55 18 Q72 18 72 32" fill="none" stroke="#475569" strokeWidth="5.5" strokeLinecap="round" />
+                
+                {/* Chainsaw Blade - HEAD (Only levels 3+) */}
+                {hasChainsaw && (
+                    <motion.g
+                        initial={false}
+                        animate={{ 
+                            scale: isBarking || isCelebrating ? 1.3 : (expression === 'determined' ? 1.1 : 1),
+                            x: isBarking || isCelebrating ? 5 : 0,
+                            y: isBarking || isCelebrating ? -5 : 0
+                        }}
+                        className="origin-[45px_35px]"
+                    >
+                        <rect x="38" y="5" width="18" height="32" rx="3" fill={level >= 5 ? '#1f2937' : '#94a3b8'} />
+                        <path d="M38 18 L24 24 L38 30" fill={level >= 5 ? '#1f2937' : '#94a3b8'} />
+                        {/* Teeth Vibration */}
+                        <motion.path 
+                            animate={{ x: isBarking || isCelebrating || expression === 'determined' ? [-0.5, 0.5, -0.5] : 0 }}
+                            transition={{ repeat: Infinity, duration: 0.05 }}
+                            d="M38 6 L42 2 L42 10 M38 15 L42 11 L42 19 M38 24 L42 20 L42 28" 
+                            stroke="#64748b" strokeWidth="1.5" 
+                        />
+                    </motion.g>
                 )}
-            </g>
-          </motion.svg>
+                
+                {/* Tail (Starter Grip) */}
+                <circle cx="15" cy="53" r="5" fill="black" />
+                <motion.path 
+                    animate={{ 
+                        rotate: expression === 'happy' || isBarking || isCelebrating ? [0, 45, -45, 0] : [0, 20, 0],
+                    }}
+                    transition={{ 
+                        repeat: Infinity, 
+                        duration: isBarking || isCelebrating ? 0.3 : 2,
+                    }}
+                    d="M15 53 L5 53" stroke="#1f2937" strokeWidth="3.5" strokeLinecap="round"
+                    style={{ originX: '15px', originY: '53px' }}
+                />
+
+                {/* Face */}
+                <g transform="translate(0, 0)">
+                    {getEyes()}
+                    {/* Cheeks */}
+                    <circle cx="70" cy="55" r="4" fill="#fb923c" opacity="0.4" />
+                    <circle cx="85" cy="55" r="4" fill="#fb923c" opacity="0.4" />
+                    
+                    {/* Mouth */}
+                    {isBarking ? (
+                        <circle cx="78" cy="62" r="4" fill="black" />
+                    ) : (
+                        expression === 'happy' && (
+                            <path d="M74 58 Q78 64 82 58" fill="none" stroke="black" strokeWidth="2" strokeLinecap="round" />
+                        )
+                    )}
+                </g>
+              </motion.svg>
+            ) : (
+              <motion.div
+                animate={{
+                  y: isMoving ? [0, -4, 0] : [0, -2, 0],
+                  scale: isBarking ? 1.1 : 1
+                }}
+                transition={{ duration: 0.5, repeat: Infinity }}
+                className={cn("w-24 h-24 rounded-3xl overflow-hidden glass-card p-2 border-2", glowShadow)}
+                style={{ transform: `scaleX(${direction})` }}
+              >
+                <img src={petImageUrl!} alt="Pet" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+              </motion.div>
+            )}
         </motion.div>
       </div>
     </motion.div>

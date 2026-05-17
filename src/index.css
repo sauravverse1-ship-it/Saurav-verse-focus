@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&family=Inter:wght@400;700;900&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&family=Inter:wght@400;700;900&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -29,6 +29,7 @@
   --font-serif: "Inter", sans-serif;
   --font-mono: "Space Mono", monospace;
   --font-sans: "Inter", sans-serif;
+  --font-journal: "Cormorant Garamond", serif;
 }
 
 @layer base {
@@ -139,10 +140,45 @@
     
     --ease-decel: cubic-bezier(0, 0, 0, 1);
     --screen-h: 100vh;
+    --nav-h:       72px;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --nav-total:   calc(var(--nav-h) + var(--safe-bottom));
+  }
+
+  /* Page Content Padding */
+  .page-content {
+    padding-bottom: calc(var(--nav-total) + 16px);
+  }
+
+  /* Theme Overrides */
+  :root[data-theme='midnight'] {
+    --md-primary: #8b5cf6;
+    --md-surface: #020617;
+    --background: #000212;
+    --md-primary-container: #1e1b4b;
+    --md-secondary: #ec4899;
+    --neon: #8b5cf6;
+  }
+
+  :root[data-theme='neon'] {
+    --md-primary: #00f2ff;
+    --md-secondary: #ff007f;
+    --md-surface: #050505;
+    --background: #000000;
+    --md-tertiary: #bcfe2f;
+    --neon: #00f2ff;
+  }
+
+  :root[data-theme='solar'] {
+    --md-primary: #facc15;
+    --md-secondary: #fb923c;
+    --md-surface: #0c0a09;
+    --background: #000000;
+    --neon: #facc15;
   }
 
   body {
-    @apply font-mono antialiased selection:bg-orange-500/30 overflow-x-clip;
+    @apply font-mono antialiased selection:bg-orange-500/30 overflow-x-hidden;
     background: var(--ink);
     color: var(--text);
   }
@@ -219,6 +255,44 @@
     pointer-events: none;
     z-index: 10;
     background: radial-gradient(circle at 50% 50%, transparent 60%, rgba(0,0,0,0.5) 100%);
+  }
+  /* Notebook Lines Utility */
+  .notebook-lines {
+    background-image: linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-size: 100% 2rem;
+    line-height: 2rem;
+    background-attachment: local;
+  }
+
+  .font-journal {
+    font-family: var(--font-journal);
+  }
+  .neural-link-active {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .neural-link-active::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(rgba(0, 255, 224, 0.03) 50%, transparent 50%);
+    background-size: 100% 4px;
+    z-index: 100;
+    pointer-events: none;
+    animation: scanline 10s linear infinite;
+  }
+
+  @keyframes scanline {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(100%); }
+  }
+
+  .neural-glow {
+    filter: drop-shadow(0 0 8px rgba(0, 255, 224, 0.4));
   }
 }
 

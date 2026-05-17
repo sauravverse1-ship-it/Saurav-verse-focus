@@ -15,96 +15,81 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    function isValidId(id) { 
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); 
     }
 
-    function incoming() {
-      return request.resource.data;
+    function incoming() { 
+      return request.resource.data; 
     }
 
-    function existing() {
-      return resource.data;
+    function existing() { 
+      return resource.data; 
     }
 
     // --- Validation Blueprints ---
-
-    function isValidUser(data, userId) {
-      return data.keys().hasAll(['uid', 'xp', 'level', 'displayName', 'totalFocusSeconds', 'pomodorosCompleted', 'rank', 'allTimeXP', 'dailyChallenges']) &&
-             data.uid == userId &&
-             data.xp is int &&
-             data.allTimeXP is int &&
-             data.level is int &&
-             data.displayName is string;
-    }
-
-    function isValidTask(data, userId) {
-      return data.keys().hasAll(['userId', 'title', 'completed', 'category', 'priority', 'sessions', 'expectedSessions', 'createdAt', 'urgent', 'isRevision', 'subjects']) &&
-             data.userId == userId &&
-             data.title is string &&
-             data.completed is bool &&
-             data.category in ['study', 'personal', 'health'] &&
-             data.priority in ['high', 'medium', 'low', 'urgent', 'standard'];
-    }
-
-    function isValidHabit(data, userId) {
-      return data.keys().hasAll(['userId', 'title', 'streak', 'completedDates', 'icon', 'createdAt', 'streakBest']) &&
-             data.userId == userId &&
-             data.title is string &&
-             data.completedDates is list;
-    }
-
-    function isValidSession(data, userId) {
-      return data.keys().hasAll(['userId', 'duration', 'timestamp', 'xpEarned']) &&
-             data.userId == userId &&
-             data.duration is int &&
-             data.xpEarned is int;
+    
+    function isValidRoom(data) {
+      return data.keys().hasAll(['name', 'isPrivate', 'password', 'mode', 'maxMembers', 'status', 'hostId', 'members', 'messages', 'createdAt', 'timerState', 'timerDuration', 'timerTarget', 'sessionGoal'])
+        && data.name is string && data.name.size() <= 100
+        && data.isPrivate is bool
+        && (data.password == null || data.password is string)
+        && data.mode is string
+        && data.maxMembers is number
+        && data.status is string
+        && data.hostId is string
+        && data.members is list
+        && data.messages is list
+        && data.createdAt is timestamp
+        && data.timerState is string
+        && data.timerDuration is number
+        && (data.timerTarget == null || data.timerTarget is number)
+        && (data.sessionGoal == null || data.sessionGoal is string);
     }
 
     // --- Main Match Blocks ---
 
-    match /users/{userId} {
-      // User Profile
-      allow get: if isOwner(userId);
-      allow create: if isOwner(userId) && isValidUser(incoming(), userId);
-      allow update: if isOwner(userId) && isValidUser(incoming(), userId) && (
-        // Action: Settings/XP Update
-        incoming().diff(existing()).affectedKeys().hasAny(['xp', 'allTimeXP', 'level', 'rank', 'dailyChallenges', 'unlockedAchievements', 'photoURL', 'totalFocusSeconds', 'pomodorosCompleted', 'health', 'skills', 'settings', 'lastActiveDate'])
+    // Rooms Collection
+    match /rooms/{roomId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() 
+        && isValidRoom(incoming())
+        && incoming().hostId == request.auth.uid
+        && incoming().createdAt == request.time;
+      allow update: if isSignedIn() && isValidRoom(incoming()) && (
+        // Action: Host Update (can change everything except createdAt)
+        (existing().hostId == request.auth.uid && incoming().createdAt == existing().createdAt)
+        ||
+        // Action: Member Join/Action (can only change members, messages, or status)
+        (incoming().diff(existing()).affectedKeys().hasOnly(['members', 'messages', 'status']) && incoming().hostId == existing().hostId && incoming().createdAt == existing().createdAt)
       );
+      allow delete: if isSignedIn() && resource.data.hostId == request.auth.uid;
+    }
 
-      // Tasks Collection
-      match /tasks/{taskId} {
-        allow list: if isOwner(userId);
-        allow get: if isOwner(userId) && isValidId(taskId);
-        allow create: if isOwner(userId) && isValidTask(incoming(), userId);
-        allow update: if isOwner(userId) && isValidTask(incoming(), userId) && (
-          // Partial updates must still result in valid task state
-          // Action: Toggle completion or edit details
-          incoming().diff(existing()).affectedKeys().hasAny(['completed', 'completedAt', 'title', 'priority', 'sessions', 'expectedSessions', 'category', 'subjects', 'urgent'])
-        );
-        allow delete: if isOwner(userId);
-      }
+    // Users and their subcollections
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create, update: if isOwner(userId);
 
-      // Habits Collection
-      match /habits/{habitId} {
-        allow list: if isOwner(userId);
-        allow get: if isOwner(userId) && isValidId(habitId);
-        allow create: if isOwner(userId) && isValidHabit(incoming(), userId);
-        allow update: if isOwner(userId) && isValidHabit(incoming(), userId) && (
-          // Action: Mark complete or update streak
-          incoming().diff(existing()).affectedKeys().hasAny(['completedDates', 'streak', 'streakBest', 'title', 'icon'])
-        );
-        allow delete: if isOwner(userId);
+      match /{allSubcollections=**} {
+        allow read, write: if isOwner(userId);
       }
+    }
 
-      // Sessions Collection
-      match /sessions/{sessionId} {
-        allow list: if isOwner(userId);
-        allow get: if isOwner(userId) && isValidId(sessionId);
-        allow create: if isOwner(userId) && isValidSession(incoming(), userId);
-        // Sessions are Records - Immutable after creation
-        allow update, delete: if false;
-      }
+    // Legacy support for other collections
+    match /social/{postId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn();
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    match /events/{eventId} { allow read: if isSignedIn(); }
+    match /store/{itemId} { allow read: if isSignedIn(); }
+    match /tournaments/{id} { allow read: if isSignedIn(); }
+    match /broadcasts/{id} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
     }
   }
 }

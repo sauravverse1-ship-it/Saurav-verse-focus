@@ -6,7 +6,7 @@ import { cn } from '../lib/utils';
 interface AddTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (title: string, category: 'study' | 'health' | 'personal', urgent: boolean, sessions: number, subject?: string | string[], isRevision?: boolean) => void;
+  onAdd: (title: string, category: 'study' | 'health' | 'personal', urgent: boolean, sessions: number, subject?: string | string[], isRevision?: boolean, priority?: 'high' | 'medium' | 'low') => void;
   defaultCategory?: 'study' | 'health' | 'personal';
   defaultIsRevision?: boolean;
   subjects?: {id: string, name: string, color: string}[];
@@ -16,6 +16,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onA
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<'study' | 'health' | 'personal'>(defaultCategory || 'study');
   const [urgent, setUrgent] = useState(false);
+  const [priority, setPriority] = useState<'high' | 'medium' | 'low'>('medium');
   const [sessions, setSessions] = useState(1);
   const [isRevision, setIsRevision] = useState(defaultIsRevision);
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
@@ -25,6 +26,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onA
       setTitle('');
       setCategory(defaultCategory || 'study');
       setUrgent(false);
+      setPriority('medium');
       setSessions(1);
       setIsRevision(defaultIsRevision);
       setSelectedSubjects([]);
@@ -34,9 +36,10 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onA
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
-    onAdd(title, category, urgent, sessions, selectedSubjects.length > 0 ? selectedSubjects : undefined, isRevision);
+    onAdd(title, category, urgent, sessions, selectedSubjects.length > 0 ? selectedSubjects : undefined, isRevision, priority);
     setTitle('');
     setUrgent(false);
+    setPriority('medium');
     setSessions(1);
     setIsRevision(false);
     setSelectedSubjects([]);
@@ -164,17 +167,34 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onA
                     ))}
                   </div>
 
-                  <div className="flex gap-4">
+                  <div className="space-y-4">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-white/40 px-2">Mission Priority</label>
+                    <div className="grid grid-cols-3 gap-2 bg-white/5 rounded-3xl p-1 border border-white/5">
+                      {(['low', 'medium', 'high'] as const).map(p => (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => setPriority(p)}
+                          className={cn(
+                            "py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all relative overflow-hidden",
+                            priority === p ? (p === 'low' ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20 shadow-lg" : p === 'medium' ? "text-amber-400 bg-amber-500/10 border-amber-500/20 shadow-lg" : "text-red-400 bg-red-500/10 border-red-500/20 shadow-lg") : "text-white/20 hover:bg-white/5"
+                          )}
+                        >
+                          <span className="relative z-10">{p}</span>
+                        </button>
+                      ))}
+                    </div>
+                    
                     <button
                       type="button"
                       onClick={() => setUrgent(!urgent)}
                       className={cn(
-                        "flex-1 h-14 rounded-3xl border flex items-center justify-center gap-3 transition-all font-black text-xs uppercase tracking-[0.2em] shadow-inner",
+                        "w-full h-14 rounded-3xl border flex items-center justify-center gap-3 transition-all font-black text-xs uppercase tracking-[0.2em] shadow-inner",
                         urgent ? "bg-red-500/10 border-red-500/40 text-red-500 shadow-[0_0_30px_rgba(239,68,68,0.2)]" : "bg-white/5 border-white/5 text-white/30 hover:bg-white/10"
                       )}
                     >
                       <Zap className={cn("w-5 h-5", urgent && "fill-red-500")} />
-                      <span>Priority Alpha</span>
+                      <span>Immediate Execution (Urgent)</span>
                     </button>
                   </div>
 

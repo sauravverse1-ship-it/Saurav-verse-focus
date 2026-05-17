@@ -7,9 +7,9 @@ export const HeroSection: React.FC<{ onExplore: () => void }> = React.memo(({ on
   return (
     <div className="relative h-[100dvh] w-full flex flex-col items-center justify-center bg-[#05050a] overflow-hidden">
       {/* Background Ambience */}
-      <div className="absolute inset-0 z-0">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-orange-600/5 blur-[120px] rounded-full animate-pulse" />
-        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-blue-600/5 blur-[120px] rounded-full animate-pulse" style={{ animationDelay: '1s' }} />
+      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 left-1/4 w-[150%] h-[150%] -translate-x-1/2 -translate-y-1/2 bg-[radial-gradient(circle_at_center,rgba(234,88,12,0.1),transparent_50%)] animate-pulse" />
+        <div className="absolute bottom-1/4 right-1/4 w-[150%] h-[150%] translate-x-1/4 translate-y-1/4 bg-[radial-gradient(circle_at_center,rgba(37,99,235,0.1),transparent_50%)] animate-pulse" style={{ animationDelay: '1s' }} />
       </div>
 
       <motion.div 
@@ -22,8 +22,8 @@ export const HeroSection: React.FC<{ onExplore: () => void }> = React.memo(({ on
           <span className="block text-orange-500 font-mono text-[10px] uppercase tracking-[0.6em] font-black">
             System Online
           </span>
-          <h1 className="text-6xl md:text-8xl font-display font-black text-white italic tracking-tighter">
-            QUANTUM <span className="text-transparent stroke-orange-500" style={{ WebkitTextStroke: '1px border-orange-500', color: '#f97316' }}>FOCUS</span>
+          <h1 className="text-5xl md:text-8xl font-display font-black text-white italic tracking-tighter leading-tight">
+            QUANTUM<br className="md:hidden" /> <span className="text-transparent" style={{ WebkitTextStroke: '1px #f97316', color: '#f97316' }}>FOCUS</span>
           </h1>
         </div>
 

@@ -19,8 +19,8 @@ export const DeveloperSection: React.FC = () => {
     <div id="developer-card-modern" ref={containerRef} className="w-full py-12 px-4">
       <div className="modern-dev-card relative bg-[#0a0a10] border border-white/5 rounded-[3rem] overflow-hidden shadow-2xl p-8 md:p-12">
         {/* Decorative elements */}
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-500/5 blur-[120px] -mr-64 -mt-64 rounded-full pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-md-primary/5 blur-[100px] -ml-32 -mb-32 rounded-full pointer-events-none" />
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.05),transparent_60%)] -mr-64 -mt-64 rounded-full pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-[radial-gradient(circle_at_center,rgba(234,88,12,0.05),transparent_60%)] -ml-32 -mb-32 rounded-full pointer-events-none" />
         
         <div className="relative z-10 flex flex-col md:flex-row items-center gap-12">
           {/* Photo Frame */}

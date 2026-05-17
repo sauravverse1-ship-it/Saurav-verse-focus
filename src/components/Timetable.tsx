@@ -3,7 +3,7 @@ import { AppDB, dbSaveImmediate } from '../lib/appDb';
 import { cn } from '../lib/utils';
 import { gsap } from 'gsap';
 import { ShieldAlert, Brain, Loader2 } from 'lucide-react';
-import { callAIBackend } from '../services/geminiService';
+import { callAI } from '../services/geminiService';
 
 export const Timetable = ({ playSound }: any) => {
     const [slots, setSlots] = useState(AppDB.timetable || []);
@@ -56,7 +56,7 @@ export const Timetable = ({ playSound }: any) => {
         playSound('tap');
 
         try {
-            const rawText = await callAIBackend(`Context: You are an AI study assistant. 
+            const result = await callAI(`Context: You are an AI study assistant. 
 Input Description: "${aiPrompt}"
 Objective: Create a structured study/work schedule.
 Constraints: 
@@ -71,10 +71,10 @@ Constraints:
 
             let generatedSlots = [];
             try {
-                generatedSlots = JSON.parse(rawText || "[]");
+                generatedSlots = JSON.parse(result || "[]");
             } catch (e) {
                 // If it fails, try cleaning possible markdown
-                const clean = (rawText || "").replace(/```json|```/g, "").trim();
+                const clean = (result || "").replace(/```json|```/g, "").trim();
                 generatedSlots = JSON.parse(clean || "[]");
             }
             

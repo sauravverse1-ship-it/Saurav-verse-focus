@@ -95,7 +95,7 @@ export const TiltCard: React.FC<TiltCardProps> = ({ children, className, intensi
   );
 };
 
-export const MagneticButton: React.FC<{ children: React.ReactNode; className?: string; onClick?: () => void }> = ({ children, className, onClick }) => {
+export const MagneticButton: React.FC<{ children: React.ReactNode; className?: string; onClick?: () => void; title?: string }> = ({ children, className, onClick, title }) => {
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -136,6 +136,7 @@ export const MagneticButton: React.FC<{ children: React.ReactNode; className?: s
       ref={buttonRef} 
       onClick={onClick}
       className={cn("relative z-10 interactive", className)}
+      title={title}
     >
       {children}
     </button>
