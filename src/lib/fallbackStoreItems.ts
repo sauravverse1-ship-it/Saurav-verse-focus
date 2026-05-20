@@ -17,7 +17,7 @@ export const fallbackStoreItems: StoreItem[] = [
   
   // Cosmetics
   { id: 'item_5', name: 'Golden Focus', description: 'Sparkling golden timer style.', priceXP: 5000, category: 'cosmetic', type: 'theme', rarity: 'legendary', image: 'https://images.unsplash.com/photo-1601004890684-d8fba4f7e2ce?w=400&q=80' },
-  { id: 'pochita-skin-hat', name: 'Adventurer Hat', description: 'A cute tiny hat for your companion.', priceXP: 500, category: 'cosmetic', rarity: 'rare', image: 'https://api.dicebear.com/7.x/shapes/svg?seed=hat&backgroundColor=b6e3f4' },
-  { id: 'pochita-skin-glasses', name: 'Smart Glasses', description: 'Makes your companion look like a scholar.', priceXP: 800, category: 'cosmetic', rarity: 'rare', image: 'https://api.dicebear.com/7.x/shapes/svg?seed=glasses&backgroundColor=ffdfba' },
-  { id: 'cosmetic_katana', name: 'Back Katana', description: 'A stylish katana worn on the back.', priceXP: 2000, category: 'cosmetic', rarity: 'epic', image: 'https://images.unsplash.com/photo-1589330694653-0669d300eb07?w=400&q=80' }
+  { id: 'pochita-skin-hat', name: 'Adventurer Hat', description: 'A cute tiny hat for your companion.', priceXP: 500, category: 'cosmetic', type: 'accessory', rarity: 'rare', image: 'https://api.dicebear.com/7.x/shapes/svg?seed=hat&backgroundColor=b6e3f4' },
+  { id: 'pochita-skin-glasses', name: 'Smart Glasses', description: 'Makes your companion look like a scholar.', priceXP: 800, category: 'cosmetic', type: 'accessory', rarity: 'rare', image: 'https://api.dicebear.com/7.x/shapes/svg?seed=glasses&backgroundColor=ffdfba' },
+  { id: 'cosmetic_katana', name: 'Back Katana', description: 'A stylish katana worn on the back.', priceXP: 2000, category: 'cosmetic', type: 'accessory', rarity: 'epic', image: 'https://images.unsplash.com/photo-1589330694653-0669d300eb07?w=400&q=80' }
 ];

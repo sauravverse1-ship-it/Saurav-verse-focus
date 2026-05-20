@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quantum Focus - Instagram Poster</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap');
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: #111;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+      font-family: 'Space Mono', monospace;
+    }
+
+    .poster-container {
+      width: 1080px;
+      height: 1080px;
+      background: #04040a;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 80px;
+      color: white;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    }
+
+    /* Grain Overlay */
+    .grain {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0.05;
+      background-image: url('data:image/svg+xml,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)"/%3E%3C/svg%3E');
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    /* Particles */
+    .particles {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: radial-gradient(circle at center, rgba(0,255,224,0.05) 0%, transparent 70%);
+      z-index: 1;
+    }
+
+    /* Logo Mark */
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      margin-bottom: 60px;
+      z-index: 5;
+    }
+
+    .logo-mark {
+      width: 60px;
+      height: 60px;
+      color: #00ffe0;
+      filter: drop-shadow(0 0 10px rgba(0,255,224,0.5));
+    }
+
+    .logo-text {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 64px;
+      letter-spacing: 4px;
+      color: #fff;
+    }
+
+    /* Hero Text */
+    .hero-text {
+      text-align: center;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 110px;
+      line-height: 0.9;
+      letter-spacing: 2px;
+      margin-bottom: 80px;
+      z-index: 5;
+      background: linear-gradient(180deg, #FFFFFF 0%, #A0A0A0 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* Neon Ring Timer */
+    .timer-container {
+      position: relative;
+      width: 320px;
+      height: 320px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 80px;
+      z-index: 5;
+      border-radius: 50%;
+    }
+
+    .timer-ring {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      border-radius: 50%;
+      border: 4px solid rgba(255,255,255,0.05);
+    }
+
+    .timer-progress {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      border-radius: 50%;
+      border: 8px solid transparent;
+      border-top-color: #00ffe0;
+      border-right-color: #9d4edd;
+      transform: rotate(45deg);
+      box-shadow: 0 0 40px rgba(0,255,224,0.3), inset 0 0 40px rgba(157,78,221,0.2);
+    }
+
+    .timer-text {
+      text-align: center;
+    }
+
+    .time {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 96px;
+      letter-spacing: 4px;
+      color: #fff;
+      text-shadow: 0 0 20px rgba(255,255,255,0.3);
+      line-height: 1;
+    }
+
+    .time-label {
+      font-size: 18px;
+      color: #00ffe0;
+      letter-spacing: 6px;
+      text-transform: uppercase;
+      margin-top: 8px;
+    }
+
+    /* Features */
+    .features-grid {
+      display: flex;
+      gap: 30px;
+      margin-bottom: 60px;
+      z-index: 5;
+    }
+
+    .feature-pill {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 16px 40px;
+      border-radius: 100px;
+      font-size: 24px;
+      color: #ccc;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      backdrop-filter: blur(10px);
+    }
+
+    /* Callouts */
+    .callouts {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 60px;
+      z-index: 5;
+    }
+
+    .callout {
+      font-size: 24px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .callout span {
+      background: rgba(255,26,26,0.1);
+      color: #ff1a1a;
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-weight: bold;
+      border: 1px solid rgba(255,26,26,0.3);
+      font-size: 16px;
+      margin-left: 12px;
+      text-transform: uppercase;
+    }
+
+    .callout:nth-child(3) span {
+      background: rgba(0,255,224,0.1);
+      color: #00ffe0;
+      border-color: rgba(0,255,224,0.3);
+    }
+
+    /* Footer */
+    .footer {
+      margin-top: auto;
+      text-align: center;
+      color: #666;
+      font-size: 18px;
+      z-index: 5;
+      line-height: 1.6;
+    }
+    
+    .footer strong {
+      color: #fff;
+      font-weight: normal;
+    }
+
+  </style>
+</head>
+<body>
+
+  <div class="poster-container">
+    <div class="grain"></div>
+    <div class="particles"></div>
+
+    <div class="logo-container">
+      <svg class="logo-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke-linejoin="round"/>
+      </svg>
+      <div class="logo-text">QUANTUM FOCUS</div>
+    </div>
+
+    <div class="hero-text">
+      STOP SURVIVING.<br>START DOMINATING.
+    </div>
+
+    <div class="timer-container">
+      <div class="timer-ring"></div>
+      <div class="timer-progress"></div>
+      <div class="timer-text">
+        <div class="time">49:58</div>
+        <div class="time-label">SYSTEM FOCUS</div>
+      </div>
+    </div>
+
+    <div class="features-grid">
+      <div class="feature-pill">Tasks</div>
+      <div class="feature-pill">Habits</div>
+      <div class="feature-pill">Analytics</div>
+      <div class="feature-pill">Ranks</div>
+    </div>
+
+    <div class="callouts">
+      <div class="callout">Chainsaw Man Theme 🔥 <span>NEW</span></div>
+      <div class="callout">Pochita Pet Companion 🐾 <span>NEW</span></div>
+      <div class="callout">AI Study Assistant 🤖 <span>PRO</span></div>
+    </div>
+
+    <div class="footer">
+      Built by <strong>@sauravverse</strong> · Kota, India<br>
+      sauravverseinfo.netlify.app
+    </div>
+  </div>
+
+</body>
+</html>

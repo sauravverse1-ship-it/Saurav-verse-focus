@@ -1,0 +1,8 @@
+{
+	"appId": "com.quantum.focus",
+	"appName": "Quantum Focus",
+	"webDir": "dist",
+	"server": {
+		"androidScheme": "https"
+	}
+}

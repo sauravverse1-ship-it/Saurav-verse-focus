@@ -44,7 +44,7 @@ export const AIArena: React.FC<AIArenaProps> = ({ tournaments, profiles, current
   ];
 
   return (
-    <div className="min-h-screen pb-24 md:pb-8 pt-6 px-4 md:px-8 space-y-10 max-w-7xl mx-auto overflow-hidden">
+    <div className="min-h-screen pb-32 pt-6 px-4 md:px-8 space-y-10 max-w-7xl mx-auto overflow-hidden">
       {/* Hero Tournament Section */}
       <div className="relative glass-card bg-gradient-to-br from-red-600/20 via-black to-zinc-950 p-10 md:p-20 rounded-[4rem] border border-red-500/30 overflow-hidden group shadow-[0_0_80px_rgba(220,38,38,0.15)]">
          {/* Animated Grid Background */}

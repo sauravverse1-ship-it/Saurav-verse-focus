@@ -1,0 +1,8 @@
+{
+  "appId": "com.sauravverse.quantumfocus",
+  "appName": "Quantum Focus",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}

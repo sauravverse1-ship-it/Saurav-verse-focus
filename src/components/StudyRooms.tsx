@@ -4,7 +4,7 @@ import { Users, Lock, Unlock, Zap, MessageSquare, Play, Flame, Search, Plus, X, 
 import { cn } from '../lib/utils';
 import { User } from 'firebase/auth';
 import { UserProfile } from '../types';
-import { collection, addDoc, updateDoc, doc, onSnapshot, query, arrayUnion, arrayRemove, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, doc, onSnapshot, query, arrayUnion, arrayRemove, deleteDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 
 interface StudyRoom {
@@ -363,7 +363,7 @@ export const StudyRooms: React.FC<StudyRoomsProps> = ({ user, profile, onSocialA
   const remainingTime = activeRoom?.timerTarget ? activeRoom.timerTarget - currentTime : 0;
 
   return (
-    <div className="h-[calc(100vh-180px)] md:h-[calc(100vh-100px)] overflow-y-auto flex flex-col space-y-8 relative pb-28 md:pb-8">
+    <div className="h-full w-full overflow-y-auto flex flex-col space-y-8 relative pb-32">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 shrink-0 mt-4 md:mt-0">
         <div className="flex items-center gap-4">
           <div className="p-4 bg-gradient-to-br from-md-primary/20 to-md-secondary/20 rounded-3xl border border-md-primary/20">
@@ -601,7 +601,7 @@ export const StudyRooms: React.FC<StudyRoomsProps> = ({ user, profile, onSocialA
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] md:absolute md:inset-0 md:z-50 bg-[#05070a] flex flex-col md:rounded-3xl overflow-hidden border-0 md:border border-white/5"
+            className="fixed inset-0 z-[250] bg-[#05070a] flex flex-col overflow-hidden w-screen h-screen border-none"
           >
             <div className="absolute inset-0 opacity-10 pointer-events-none">
               <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-md-primary/20 to-transparent" />
@@ -645,53 +645,43 @@ export const StudyRooms: React.FC<StudyRoomsProps> = ({ user, profile, onSocialA
               </button>
             </header>
 
-            <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative z-10">
-              {/* Member Grid - Left Side */}
-              <div className={cn("flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar", isChatFullscreen ? "hidden" : "block")}>
-                <div className="max-w-4xl mx-auto space-y-12 pb-24">
-                  <div className="flex flex-col items-center justify-center py-8 gap-8">
-                    <div className="relative p-1 rounded-full bg-md-primary/10 border border-md-primary/20 shadow-[0_0_80px_rgba(0,179,161,0.2)] animate-glow">
-                      <div className="bg-black border-2 border-md-primary/30 p-10 md:p-14 rounded-full flex flex-col items-center justify-center min-w-[220px] md:min-w-[300px] aspect-square relative z-10">
+            <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative z-10 min-h-0">
+              {/* Member Grid - Left Side - Holds Timer and Members */}
+              <div className={cn("flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar min-h-0", isChatFullscreen ? "hidden" : "block")}>
+                <div className="w-full h-full space-y-4 px-4 md:px-8">
+                  <div className="flex flex-col items-center justify-center py-4 gap-6">
+                    {/* Timer Canvas Constrained */}
+                    <div className="relative p-1 rounded-full bg-md-primary/10 border border-md-primary/20 shadow-[0_0_80px_rgba(0,179,161,0.2)] animate-glow max-h-[25vh] md:max-h-[40vh] aspect-square">
+                      <div className="bg-black border-2 border-md-primary/30 p-4 md:p-8 rounded-full flex flex-col items-center justify-center w-full h-full relative z-10 aspect-square">
                         <span className={cn(
-                          "text-7xl md:text-9xl font-mono font-black italic tracking-tighter text-white tabular-nums drop-shadow-[0_0_20px_rgba(255,255,255,0.4)]",
+                          "text-4xl md:text-7xl font-mono font-black italic tracking-tighter text-white tabular-nums drop-shadow-[0_0_20px_rgba(255,255,255,0.4)]",
                           remainingTime <= 0 && activeRoom.timerState !== 'IDLE' ? "text-red-500 animate-pulse" : ""
                         )}>
                           {formatTime(remainingTime)}
                         </span>
-                        <div className="flex flex-col items-center mt-4">
-                          <span className="text-xs font-black uppercase tracking-[0.4em] text-md-primary/80">
+                        <div className="flex flex-col items-center mt-2">
+                          <span className="text-[8px] md:text-xs font-black uppercase tracking-[0.4em] text-md-primary/80">
                             {activeRoom.timerState === 'FOCUSING' ? 'BATTLE IN PROGRESS' : activeRoom.timerState === 'BREAK' ? 'RECOVERY PHASE' : 'IDLE STATE'}
                           </span>
-                          <div className="flex gap-1.5 mt-2">
-                             {[...Array(3)].map((_, i) => (
-                               <motion.div 
-                                 key={i}
-                                 animate={activeRoom.timerState !== 'IDLE' ? { scale: [1, 1.5, 1], opacity: [0.3, 1, 0.3] } : { opacity: 0.1 }}
-                                 transition={{ duration: 1, delay: i * 0.2, repeat: Infinity }}
-                                 className="w-1.5 h-1.5 rounded-full bg-md-primary" 
-                               />
-                             ))}
-                          </div>
                         </div>
                       </div>
-
-                      {/* Progress Circle BG */}
-                      <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none" viewBox="0 0 100 100">
-                        <circle 
-                          cx="50" cy="50" r="48" 
-                          className="fill-none stroke-white/5 stroke-[1]" 
-                        />
-                        <motion.circle 
-                          cx="50" cy="50" r="48" 
-                          className="fill-none stroke-[2]"
-                          stroke={activeRoom.timerState === 'BREAK' ? '#f97316' : '#00b3a1'}
-                          strokeDasharray="301.6"
-                          animate={{ strokeDashoffset: 301.6 * (1 - getTimerProgress()) }}
-                          transition={{ duration: 1, ease: "linear" }}
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                    </div>
+                        {/* Progress Circle BG */}
+                        <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none" viewBox="0 0 100 100">
+                          <circle 
+                            cx="50" cy="50" r="48" 
+                            className="fill-none stroke-white/5 stroke-[1]" 
+                          />
+                          <motion.circle 
+                            cx="50" cy="50" r="48" 
+                            className="fill-none stroke-[2]"
+                            stroke={activeRoom.timerState === 'BREAK' ? '#f97316' : '#00b3a1'}
+                            strokeDasharray="301.6"
+                            animate={{ strokeDashoffset: 301.6 * (1 - getTimerProgress()) }}
+                            transition={{ duration: 1, ease: "linear" }}
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                      </div>
 
                     {/* Host Controls */}
                     {activeRoom.hostId === user?.uid && (
@@ -855,12 +845,12 @@ export const StudyRooms: React.FC<StudyRoomsProps> = ({ user, profile, onSocialA
 
               {/* Chat & Controls - Right Side */}
               <div className={cn(
-                "flex flex-col border-t md:border-t-0 md:border-l border-white/5 bg-black/40 backdrop-blur-xl transition-all duration-500",
+                "flex flex-col border-t md:border-t-0 md:border-l border-white/5 bg-black/40 backdrop-blur-xl transition-all duration-500 min-h-0 flex-shrink-0",
                 isChatFullscreen 
                   ? "w-full absolute inset-0 z-50 bg-[#05070a]/95 border-none" 
-                  : "w-full h-[45vh] md:h-auto md:w-[320px] lg:w-[400px] xl:w-[450px]"
+                  : "w-full h-[48vh] md:h-full md:w-[350px] lg:w-[420px] xl:w-[460px]"
               )}>
-                 <div className="p-4 md:p-6 border-b border-white/5 space-y-4">
+                 <div className="p-4 md:p-4 border-b border-white/5 space-y-2">
                     <div className="flex items-center justify-between mb-2">
                        <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Communication Interface</span>
                        <button 

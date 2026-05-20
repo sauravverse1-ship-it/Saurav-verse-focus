@@ -87,7 +87,7 @@ export const FocusLab: React.FC<FocusLabProps> = ({ experiments, sessionLogs, on
   };
 
   return (
-    <div className="min-h-screen pb-24 md:pb-8 pt-6 px-4 md:px-8 space-y-8 max-w-7xl mx-auto">
+    <div className="min-h-screen pb-32 pt-6 px-4 md:px-8 space-y-8 max-w-7xl mx-auto">
       {/* Header */}
       <div className="space-y-2">
          <div className="flex items-center gap-3">

@@ -356,12 +356,12 @@ const NavButton = ({ active, icon: Icon, label, onClick }: { active: boolean, ic
     }}
     onMouseEnter={playTick}
     className={cn(
-      "group relative flex items-center md:flex-row flex-col gap-0.5 md:gap-4 md:w-full md:px-4 md:py-3 transition-all duration-300 h-14 md:h-auto justify-center md:justify-start px-1 md:px-2 flex-1 md:flex-none",
-      "md:w-full"
+      "group relative flex flex-col items-center gap-1 transition-all duration-300 h-14 md:h-16 justify-center px-1 flex-1 min-w-0 max-w-[80px] md:max-w-[100px]",
+      active ? "scale-105" : "hover:scale-105"
     )}
   >
     <div className={cn(
-      "relative z-10 w-10 h-6 md:w-16 md:h-10 flex items-center justify-center rounded-full transition-all duration-300 nav-icon-wrap mb-0.5 md:mb-0",
+      "relative z-10 w-10 h-6 md:w-14 md:h-8 flex items-center justify-center rounded-full transition-all duration-300 nav-icon-wrap mb-0.5",
       active ? "bg-md-primary-container text-md-primary shadow-[0_0_15px_rgba(var(--md-primary-rgb),0.3)]" : "text-md-on-surface-variant group-hover:text-white"
     )}>
       {active && (
@@ -370,11 +370,11 @@ const NavButton = ({ active, icon: Icon, label, onClick }: { active: boolean, ic
           className="absolute inset-0 bg-md-primary-container rounded-full shadow-[0_0_20px_rgba(0,255,224,0.2)] -z-10"
         />
       )}
-      <Icon className={cn("w-5 h-5 md:w-5 md:h-5 transition-transform duration-300", active && "scale-110")} strokeWidth={active ? 3 : 2} />
+      <Icon className={cn("w-5 h-5 transition-transform duration-300", active && "scale-110")} strokeWidth={active ? 3 : 2} />
     </div>
     <span className={cn(
-      "hidden md:block text-[7px] md:text-sm font-mono uppercase tracking-[0.05em] font-black transition-all duration-300 whitespace-nowrap truncate w-full text-center md:text-left",
-      active ? "text-white opacity-100" : "text-md-on-surface-variant md:opacity-60 md:group-hover:opacity-100 opacity-40"
+      "text-[8px] md:text-[10px] font-black uppercase tracking-widest transition-all duration-300 whitespace-nowrap truncate w-full text-center",
+      active ? "text-white opacity-100" : "text-white/40 group-hover:text-white/70"
     )}>
       {label}
     </span>
@@ -1142,7 +1142,25 @@ export default function App() {
   const [showBrain, setShowBrain] = useState(false);
   const [showMissions, setShowMissions] = useState(false);
 
-  const isOverlayOpen = isCoachOpen || isAddTaskModalOpen || isAddHabitModalOpen || isContractModalOpen || isArenaOpen || showMirror || showBrain || showMissions || isNightRitualOpen || isFormulaVaultOpen || showNameModal || showDreamPrompt || showAchievements;
+  useEffect(() => {
+    if (isInStudyRoom) {
+      setIsCoachOpen(false);
+      setIsAddTaskModalOpen(false);
+      setIsAddHabitModalOpen(false);
+      setIsContractModalOpen(false);
+      setIsArenaOpen(false);
+      setShowMirror(false);
+      setShowBrain(false);
+      setShowMissions(false);
+      setIsNightRitualOpen(false);
+      setIsFormulaVaultOpen(false);
+      setShowNameModal(false);
+      setShowDreamPrompt(false);
+      setShowAchievements(false);
+    }
+  }, [isInStudyRoom]);
+
+  const isOverlayOpen = isInStudyRoom || isCoachOpen || isAddTaskModalOpen || isAddHabitModalOpen || isContractModalOpen || isArenaOpen || showMirror || showBrain || showMissions || isNightRitualOpen || isFormulaVaultOpen || showNameModal || showDreamPrompt || showAchievements;
 
   useEffect(() => {
     if (!user) return;
@@ -3281,11 +3299,11 @@ export default function App() {
             key="dashboard"
             initial={{ opacity: 0, scale: 1.1 }}
             animate={{ opacity: 1, scale: 1 }}
-            className={cn("min-h-screen flex flex-col transition-all duration-700", (!isFocusMode && !isSimpleTimerMode && !isOverlayOpen) && "md:ml-64")}
+            className={cn("min-h-screen flex flex-col transition-all duration-700")}
           >
             {/* Header / Stats Overlay */}
-            {!isFocusMode && !isSimpleTimerMode && (
-              <header className="fixed top-0 left-0 md:left-64 right-0 p-4 md:p-6 flex items-center justify-between bg-background/95 backdrop-blur-xl z-[60] border-b border-white/5 shadow-lg shadow-black/20">
+            {!isFocusMode && !isSimpleTimerMode && !isInStudyRoom && (
+              <header className="fixed top-0 left-0 right-0 p-4 md:p-6 flex items-center justify-between bg-background/95 backdrop-blur-xl z-[60] border-b border-white/5 shadow-lg shadow-black/20">
                 <div className="flex items-center gap-3">
                   <div 
                     onClick={() => setView('cinematic')}
@@ -3355,7 +3373,7 @@ export default function App() {
             {/* Main Content Area */}
             <main className={cn(
               "flex-1 overflow-x-hidden",
-              isFocusMode || isSimpleTimerMode ? "p-0" : "px-6 pb-28 pt-24 md:px-12 md:pb-12 md:pt-32 max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto space-y-12 mb-20 md:mb-0 transition-all duration-500"
+              isFocusMode || isSimpleTimerMode || isInStudyRoom ? "p-0 max-w-none" : "px-6 pb-32 pt-24 md:px-12 md:pb-32 md:pt-32 max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto space-y-12 mb-10 transition-all duration-500"
             )}>
               <AnimatePresence mode="wait">
                 {(!profile || !user) && !loading && (
@@ -3898,7 +3916,7 @@ export default function App() {
               className="relative w-full h-full min-h-[calc(100vh-140px)]"
             >
               {/* Full Screen Background for Timer */}
-              <div className={cn("fixed inset-0 z-0 pointer-events-none bg-[#05070d]", !isFocusMode && "md:ml-64")}>
+              <div className={cn("fixed inset-0 z-0 pointer-events-none bg-[#05070d]")}>
                 <FireBreathingScene isRunning={isRunning} intensity={mode === 'study' ? 0.9 : 0.2} />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#05070d] via-transparent to-[#05070d] opacity-70" />
                 {/* Lighter overlay for better animation visibility */}
@@ -4769,14 +4787,14 @@ export default function App() {
               key="rooms"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="pb-20"
+              className="w-full h-full"
             >
               <StudyRooms 
                 user={user} 
                 profile={profile} 
                 onRoomStateChange={setIsInStudyRoom}
                 appIsRunning={isRunning}
-                appTimerMode={mode}
+                appTimerMode={mode === 'study' ? 'study' : 'break'}
                 onToggleLocalTimer={() => setIsRunning(!isRunning)}
                 onSocialAction={() => {
                   if (profile?.seasonPass) {
@@ -5394,14 +5412,14 @@ export default function App() {
 
         {/* Atmosphere Control Center (Persistent) */}
         <AnimatePresence>
-          {activeAmbientTrack && !isFocusMode && view === 'dashboard' && (
+          {activeAmbientTrack && !isFocusMode && view === 'dashboard' && !isInStudyRoom && (
            <motion.div 
              id="music-mini-player" 
              initial={{ opacity: 0, y: 20 }}
              animate={{ opacity: 1, y: 0 }}
              exit={{ opacity: 0, y: 20 }}
              onClick={() => setIsAtmosphereSheetOpen(true)}
-             className="fixed bottom-[calc(88px+env(safe-area-inset-bottom))] md:bottom-8 md:right-auto md:left-[300px] left-1/2 -translate-x-1/2 md:translate-x-0 w-[calc(100%-180px)] md:w-80 h-14 bg-md-surface-2/90 backdrop-blur-xl rounded-full border border-white/10 flex items-center px-3 gap-3 z-[55] shadow-[0_16px_32px_rgba(0,0,0,0.4)] cursor-pointer"
+             className="fixed bottom-[calc(88px+env(safe-area-inset-bottom))] md:bottom-28 md:right-auto md:left-8 left-1/2 -translate-x-1/2 md:translate-x-0 w-[calc(100%-180px)] md:w-80 h-14 bg-md-surface-2/90 backdrop-blur-xl rounded-full border border-white/10 flex items-center px-3 gap-3 z-[55] shadow-[0_16px_32px_rgba(0,0,0,0.4)] cursor-pointer"
            >
              <div className="w-8 h-8 rounded-full bg-md-primary flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(234,88,12,0.5)]">
                  <Music className="w-4 h-4 text-md-on-primary" />
@@ -5451,57 +5469,20 @@ export default function App() {
         <button 
           onClick={() => openAddTaskModal()}
           onMouseEnter={playTick}
-          className="fixed bottom-[calc(110px+env(safe-area-inset-bottom))] right-6 md:bottom-8 md:right-8 bg-gradient-to-r from-orange-600 to-amber-500 text-white hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2 overflow-hidden shadow-[0_10px_30px_rgba(234,88,12,0.4)] z-40 group md:h-14 md:px-6 rounded-full h-14 w-14 md:w-auto border border-white/20"
+          className="fixed bottom-[calc(110px+env(safe-area-inset-bottom))] right-6 md:bottom-28 md:right-8 bg-gradient-to-r from-orange-600 to-amber-500 text-white hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2 overflow-hidden shadow-[0_10px_30px_rgba(234,88,12,0.4)] z-40 group md:h-14 md:px-6 rounded-full h-14 w-14 md:w-auto border border-white/20"
         >
            <Plus className="w-6 h-6 min-w-[24px] group-hover:rotate-90 transition-transform duration-300" strokeWidth={2.5} />
            <span className="hidden md:block font-mono font-black text-xs uppercase tracking-widest whitespace-nowrap">Deploy Mission</span>
         </button>
       )}
 
-      {/* Bottom Navigation / M3 Rail */}
+      {/* Bottom Nav */}
       {!isFocusMode && !isSimpleTimerMode && !isOverlayOpen && view === 'dashboard' && (
-        <>
-          {/* Desktop Nav Rail - FITTED LAYOUT */}
-          <nav className="hidden md:flex fixed left-0 top-0 bottom-0 h-screen w-64 border-r border-white/5 bg-md-surface/80 backdrop-blur-2xl z-40
-                          flex-col items-start justify-start gap-1 p-6">
-            <div className="w-full mb-10 flex items-center justify-between px-2">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-orange-500/10 flex items-center justify-center border border-orange-500/20">
-                  <Play className="w-5 h-5 text-orange-500 fill-orange-500" />
-                </div>
-                <h1 className="font-display text-2xl uppercase tracking-tighter italic font-black">Hunter</h1>
-              </div>
-            </div>
-
-            <div className="w-full space-y-1">
-              <div className="px-3 py-1 text-[8px] font-black uppercase text-white/20 tracking-[0.4em] mb-2">Core</div>
-              <NavButton active={activeTab === 'home'} icon={Home} label="HQ Home" onClick={() => { setActiveTab('home'); setIsSimpleTimerMode(false); }} />
-              <NavButton active={activeTab === 'tasks'} icon={BarChart2} label="Quest Log" onClick={() => { setActiveTab('tasks'); setIsSimpleTimerMode(false); }} />
-              <NavButton active={activeTab === 'habits'} icon={Heart} label="Circuits" onClick={() => { setActiveTab('habits'); setIsSimpleTimerMode(false); }} />
-              <NavButton active={activeTab === 'timer'} icon={Timer} label="Focus" onClick={() => { setActiveTab('timer'); setIsSimpleTimerMode(false); }} />
-            </div>
-
-            <div className="w-full space-y-1 mt-6">
-              <div className="px-3 py-1 text-[8px] font-black uppercase text-white/20 tracking-[0.4em] mb-2">Systems</div>
-              <NavButton active={activeTab === 'stats'} icon={Activity} label="Analysis" onClick={() => { setActiveTab('stats'); setIsSimpleTimerMode(false); }} />
-              <NavButton active={activeTab === 'arena'} icon={Swords} label="Crucible" onClick={() => { setActiveTab('arena'); setIsSimpleTimerMode(false); }} />
-              <NavButton active={isMoreOpen} icon={MoreHorizontal} label="Module" onClick={() => setIsMoreOpen(true)} />
-            </div>
-            
-            <div className="flex-1" />
-            
-            <div className="w-full space-y-4">
-              <NavButton active={activeTab === 'profile'} icon={UserIcon} label="System" onClick={() => { setActiveTab('profile'); setIsSimpleTimerMode(false); }} />
-              <XPBar profile={profile} onPrestige={handlePrestige} />
-            </div>
-          </nav>
-
-          {/* Mobile Bottom Tab */}
-          <nav id="mobile-nav" className={cn(
-            "md:hidden fixed bottom-0 left-0 right-0 h-[calc(72px+env(safe-area-inset-bottom))] pb-[env(safe-area-inset-bottom)] bg-black/80 backdrop-blur-3xl border-t border-white/10 flex items-center z-[100] transition-all duration-300",
+          <nav id="unified-nav" className={cn(
+            "fixed bottom-4 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:w-max h-20 backdrop-blur-3xl border border-white/10 flex items-center z-[100] transition-all duration-300 rounded-[2rem] bg-black/80 shadow-2xl",
             (isOverlayOpen || isAtmosphereSheetOpen || isFocusMode || isSimpleTimerMode || isInStudyRoom) ? "translate-y-full opacity-0 pointer-events-none" : "translate-y-0 opacity-100"
           )}>
-            <div className="flex items-center w-full px-2 gap-1 overflow-x-auto no-scrollbar custom-scrollbar justify-start sm:justify-around">
+            <div className="flex items-center w-full px-4 gap-2 overflow-x-auto no-scrollbar justify-start sm:justify-around sm:px-8">
               <NavButton active={activeTab === 'home'} icon={Home} label="Home" onClick={() => { setActiveTab('home'); setIsSimpleTimerMode(false); }} />
               <NavButton active={activeTab === 'tasks'} icon={BarChart2} label="Tasks" onClick={() => { setActiveTab('tasks'); setIsSimpleTimerMode(false); }} />
               <NavButton active={activeTab === 'habits'} icon={Heart} label="Habits" onClick={() => { setActiveTab('habits'); setIsSimpleTimerMode(false); }} />
@@ -5511,7 +5492,6 @@ export default function App() {
               <NavButton active={isMoreOpen} icon={MoreHorizontal} label="More" onClick={() => setIsMoreOpen(true)} />
             </div>
           </nav>
-        </>
       )}
 
       {/* Focus Mode floating Close removed as redundant */}
@@ -5674,7 +5654,7 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {view === 'dashboard' && !isFocusMode && !isSimpleTimerMode && (
+      {view === 'dashboard' && !isFocusMode && !isSimpleTimerMode && !isInStudyRoom && (
         <button
           onClick={() => setIsNightRitualOpen(true)}
           className="fixed bottom-24 left-4 md:bottom-32 md:left-4 bg-purple-500/10 border border-purple-500/20 text-purple-400 p-2.5 rounded-full z-40 hover:bg-purple-500/20 transition-all backdrop-blur-md shadow-lg shadow-purple-900/20 scale-90 md:scale-100"
@@ -6031,7 +6011,7 @@ export default function App() {
         />
       )}
 
-      {!isFocusMode && (
+      {!isFocusMode && !isInStudyRoom && (
         <div 
           onClick={(e) => {
             window.dispatchEvent(new CustomEvent('app-touch-spark', { detail: { x: e.clientX, y: e.clientY } }));

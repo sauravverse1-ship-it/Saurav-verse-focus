@@ -128,7 +128,7 @@ export const AlchemyView: React.FC<AlchemyViewProps> = ({ resources, craftedItem
   ];
 
   return (
-    <div className="min-h-screen pb-24 md:pb-8 pt-6 px-4 md:px-8 space-y-8 max-w-7xl mx-auto overflow-hidden">
+    <div className="min-h-screen pb-32 pt-6 px-4 md:px-8 space-y-8 max-w-7xl mx-auto overflow-hidden">
       {/* Header */}
       <div className="space-y-4">
          <div className="flex items-center gap-3">
