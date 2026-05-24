@@ -1,12 +1,15 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 
 export const CustomCursor: React.FC = () => {
   const dotRef = useRef<HTMLDivElement>(null);
   const ringRef = useRef<HTMLDivElement>(null);
+  const [isMobile, setIsMobile] = useState(true);
 
   useEffect(() => {
-    if (window.matchMedia('(pointer: coarse)').matches) return;
+    const isCoarse = window.matchMedia('(pointer: coarse)').matches;
+    setIsMobile(isCoarse);
+    if (isCoarse) return;
 
     const dot = dotRef.current;
     const ring = ringRef.current;
@@ -94,6 +97,8 @@ export const CustomCursor: React.FC = () => {
       window.removeEventListener('mouseup', handleMouseUp);
     };
   }, []);
+
+  if (isMobile) return null;
 
   return (
     <>

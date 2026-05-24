@@ -65,14 +65,21 @@ export const QuantumRadio: React.FC = () => {
   // Initialize Audio Engine
   const initAudio = () => {
     if (!audioCtxRef.current) {
-      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-      masterGainRef.current = audioCtxRef.current.createGain();
-      analyserRef.current = audioCtxRef.current.createAnalyser();
-      masterGainRef.current.connect(analyserRef.current);
-      analyserRef.current.connect(audioCtxRef.current.destination);
-      
-      // Initial Volume
-      masterGainRef.current.gain.value = volume;
+      try {
+        const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioCtxClass) {
+          audioCtxRef.current = new AudioCtxClass();
+          masterGainRef.current = audioCtxRef.current.createGain();
+          analyserRef.current = audioCtxRef.current.createAnalyser();
+          masterGainRef.current.connect(analyserRef.current);
+          analyserRef.current.connect(audioCtxRef.current.destination);
+          
+          // Initial Volume
+          masterGainRef.current.gain.value = volume;
+        }
+      } catch (e) {
+        console.warn("QuantumRadio failed to initialize AudioContext:", e);
+      }
     }
   };
 

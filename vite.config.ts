@@ -8,6 +8,7 @@ export default defineConfig(({mode}) => {
   return {
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(process.env.GEMINI_API_KEY),
+      'process.env.APP_URL': JSON.stringify(process.env.APP_URL || ''),
     },
     plugins: [
       react(), 

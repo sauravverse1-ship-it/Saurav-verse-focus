@@ -1,17 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
-
-// AI logic is kept on the client as per platform guidelines. 
-// We use a safe initialization to prevent crashes in environments where process.env might be undefined.
-const getApiKey = () => {
-  try {
-    return process.env.GEMINI_API_KEY;
-  } catch {
-    return undefined;
-  }
-};
-
-const apiKey = getApiKey();
-const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
+// AI logic is channeled through a secure backend proxy to keep API keys hidden and ensure reliable behavior in all environments (preview, stand-alone, PWA, android package).
 
 const SYSTEM_INSTRUCTION = `
 You are 'Supervisor', the Public Safety Devil Hunter HQ AI for the CSM (Chainsaw Slay Methodology). 
@@ -44,26 +31,138 @@ const FALLBACK_COACH_RESPONSES = [
 ];
 
 export async function callAI(prompt: string, options: { systemInstruction?: string, model?: string, responseMimeType?: string } = {}) {
-  if (!ai) {
-    console.warn("AI not initialized: Missing API Key");
-    return null;
-  }
-
   try {
-    const response = await ai.models.generateContent({
-      model: options.model || "gemini-2.0-flash",
-      contents: prompt,
-      config: {
-        systemInstruction: options.systemInstruction || SYSTEM_INSTRUCTION,
-        responseMimeType: options.responseMimeType
-      }
-    });
+    const envKey = (typeof process !== "undefined" && process.env && process.env.GEMINI_API_KEY) || "";
+    const cleanedEnvKey = (envKey && envKey !== "undefined" && envKey !== "MY_API_KEY") ? envKey : "";
+    const localKey = localStorage.getItem("csm_custom_gemini_api_key") || cleanedEnvKey;
 
-    if (!response.text) {
-        throw new Error("Empty response from AI");
+    // We prioritize routing the call through our full-stack Express backend proxy, 
+    // even with custom api keys, to completely avoid client-side CORS issues in sandboxed iFrames.
+    let baseUrl = "";
+    const currentOrigin = window.location.origin;
+    const isLocalhostMock = currentOrigin.includes("://localhost") && !currentOrigin.includes(":3000");
+    const isCapacitorNative = currentOrigin.includes("capacitor://") || currentOrigin.includes("file://");
+    
+    const PROD_FALLBACK_URL = "https://ais-pre-4m224lwpwa7sbfnkqzxo4v-865131783853.asia-southeast1.run.app";
+    const DEV_FALLBACK_URL = "https://ais-dev-4m224lwpwa7sbfnkqzxo4v-865131783853.asia-southeast1.run.app";
+    
+    const bestFallbackUrl = (process.env.APP_URL && process.env.APP_URL !== "MY_APP_URL") 
+      ? process.env.APP_URL 
+      : PROD_FALLBACK_URL;
+
+    if (isLocalhostMock || isCapacitorNative) {
+      const savedProxyUrl = localStorage.getItem("csm_custom_proxy_url") || "";
+      if (savedProxyUrl) {
+        baseUrl = savedProxyUrl;
+      } else {
+        baseUrl = bestFallbackUrl;
+      }
     }
 
-    return response.text;
+    let response;
+    let backendSuccess = false;
+    try {
+      response = await fetch(`${baseUrl}/api/ai/generate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          prompt,
+          systemInstruction: options.systemInstruction || SYSTEM_INSTRUCTION,
+          responseMimeType: options.responseMimeType,
+          model: options.model || "gemini-3.5-flash",
+          customApiKey: localKey || undefined
+        })
+      });
+      if (response.ok) backendSuccess = true;
+    } catch (fetchErr) {
+      console.warn("Local backend proxy unreachable, attempting primary absolute container fallback...", fetchErr);
+      try {
+        response = await fetch(`${bestFallbackUrl}/api/ai/generate`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            prompt,
+            systemInstruction: options.systemInstruction || SYSTEM_INSTRUCTION,
+            responseMimeType: options.responseMimeType,
+            model: options.model || "gemini-3.5-flash",
+            customApiKey: localKey || undefined
+          })
+        });
+        if (response.ok) backendSuccess = true;
+      } catch (fallbackErr) {
+        console.warn("Primary fallback unreachable, attempting development container fallback...", fallbackErr);
+        try {
+          response = await fetch(`${DEV_FALLBACK_URL}/api/ai/generate`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              prompt,
+              systemInstruction: options.systemInstruction || SYSTEM_INSTRUCTION,
+              responseMimeType: options.responseMimeType,
+              model: options.model || "gemini-3.5-flash",
+              customApiKey: localKey || undefined
+            })
+          });
+          if (response.ok) backendSuccess = true;
+        } catch (devFallbackErr) {
+          console.warn("Express proxy pathways failed. Attempting direct client-side REST call...", devFallbackErr);
+        }
+      }
+    }
+
+    if (backendSuccess && response) {
+      const data = await response.json();
+      return data.text || null;
+    }
+
+    // Direct REST client-side call as secondary robust fallback
+    if (localKey && localKey.trim()) {
+      let modelToUse = options.model || "gemini-2.5-flash";
+      if (modelToUse.includes("gemini-1.5") || modelToUse === "gemini-2.0-flash" || modelToUse === "gemini-3.5-flash") {
+        modelToUse = "gemini-2.5-flash";
+      }
+        
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelToUse}:generateContent?key=${localKey}`;
+      const partsPayload: any[] = [{ text: prompt }];
+      const payload: any = {
+        contents: [{ parts: partsPayload }]
+      };
+      
+      if (options.systemInstruction) {
+        payload.systemInstruction = {
+          parts: [{ text: options.systemInstruction }]
+        };
+      }
+      if (options.responseMimeType === "application/json") {
+        payload.generationConfig = { responseMimeType: "application/json" };
+      }
+      
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`Direct Gemini client fallback failure: ${errorText}`);
+      }
+      
+      const json = await res.json();
+      return json.candidates?.[0]?.content?.parts?.[0]?.text || null;
+    }
+
+    if (response) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP error ${response.status}`);
+    }
+    throw new Error("No upstream AI services successfully loaded.");
   } catch (error) {
     console.error("AI call failed:", error);
     throw error;

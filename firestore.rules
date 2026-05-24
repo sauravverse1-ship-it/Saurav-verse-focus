@@ -44,26 +44,15 @@ service cloud.firestore {
         && data.timerState is string
         && data.timerDuration is number
         && (data.timerTarget == null || data.timerTarget is number)
-        && (data.sessionGoal == null || data.sessionGoal is string);
+        && (data.sessionGoal == null || data.sessionGoal is string)
+        && (!data.keys().contains('soundboardTrigger') || data.soundboardTrigger == null || data.soundboardTrigger is map);
     }
 
     // --- Main Match Blocks ---
 
     // Rooms Collection
     match /rooms/{roomId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() 
-        && isValidRoom(incoming())
-        && incoming().hostId == request.auth.uid
-        && incoming().createdAt == request.time;
-      allow update: if isSignedIn() && isValidRoom(incoming()) && (
-        // Action: Host Update (can change everything except createdAt)
-        (existing().hostId == request.auth.uid && incoming().createdAt == existing().createdAt)
-        ||
-        // Action: Member Join/Action (can only change members, messages, or status)
-        (incoming().diff(existing()).affectedKeys().hasOnly(['members', 'messages', 'status']) && incoming().hostId == existing().hostId && incoming().createdAt == existing().createdAt)
-      );
-      allow delete: if isSignedIn() && resource.data.hostId == request.auth.uid;
+      allow read, write: if isSignedIn();
     }
 
     // Users and their subcollections
@@ -85,11 +74,8 @@ service cloud.firestore {
     }
 
     match /events/{eventId} { allow read: if isSignedIn(); }
-    match /store/{itemId} { allow read: if isSignedIn(); }
-    match /tournaments/{id} { allow read: if isSignedIn(); }
-    match /broadcasts/{id} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-    }
+    match /store/{itemId} { allow read, write: if isSignedIn(); }
+    match /tournaments/{id} { allow read, write: if isSignedIn(); }
+    match /broadcasts/{id} { allow read, write: if isSignedIn(); }
   }
 }

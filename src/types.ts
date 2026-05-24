@@ -435,7 +435,7 @@ export interface StoreItem {
   name: string;
   description: string;
   priceXP: number;
-  category: 'cosmetic' | 'powerup' | 'special' | 'legend';
+  category: 'cosmetic' | 'powerup' | 'special' | 'legend' | 'pet';
   type: string;
   rarity: 'common' | 'rare' | 'epic' | 'legendary';
   image: string;

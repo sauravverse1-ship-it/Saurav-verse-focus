@@ -21,11 +21,12 @@ import { format } from 'date-fns';
 interface FocusStreamProps {
   activeSessions: BroadcastSession[];
   onStartBroadcast: (subject: string) => void;
+  onEndBroadcast: () => void;
   onJoinSession: (sessionId: string) => void;
   currentProfile: UserProfile;
 }
 
-export const FocusStream: React.FC<FocusStreamProps> = ({ activeSessions, onStartBroadcast, onJoinSession, currentProfile }) => {
+export const FocusStream: React.FC<FocusStreamProps> = ({ activeSessions, onStartBroadcast, onEndBroadcast, onJoinSession, currentProfile }) => {
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState('');
 
@@ -55,7 +56,10 @@ export const FocusStream: React.FC<FocusStreamProps> = ({ activeSessions, onStar
 
             <div className="flex flex-wrap gap-4 pt-4">
                {mySession ? (
-                 <button className="px-10 py-5 bg-red-600 text-white rounded-full font-black uppercase tracking-widest text-xs hover:scale-105 active:scale-95 transition-all shadow-2xl">
+                 <button 
+                   onClick={onEndBroadcast}
+                   className="px-10 py-5 bg-red-600 text-white rounded-full font-black uppercase tracking-widest text-xs hover:scale-105 active:scale-95 transition-all shadow-2xl"
+                 >
                     End Broadcast
                  </button>
                ) : (

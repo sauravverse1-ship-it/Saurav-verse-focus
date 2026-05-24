@@ -137,7 +137,7 @@ export const PublicSafetyBureau: React.FC<PublicSafetyBureauProps> = ({ profile,
                     onClick={() => setSelectedCharacter(null)}
                     className="p-3 bg-white/5 hover:bg-white/10 rounded-full text-white/40 hover:text-white transition-all"
                   >
-                    <CheckCircle2 className="w-8 h-8" />
+                    <X className="w-8 h-8" />
                   </button>
                 </div>
 

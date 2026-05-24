@@ -54,6 +54,7 @@ import { SignContractModal } from './components/SignContractModal';
 import { QuantumMirror } from './components/QuantumMirror';
 import { FlashcardArena } from './components/FlashcardArena';
 import { CinematicOnboarding } from './components/CinematicOnboarding';
+import { JarvisOrb } from './components/JarvisOrb';
 import { SubjectBrain } from './components/SubjectBrain';
 import { BreakRitual } from './components/BreakRitual';
 import { MissionImpossibleMode, Mission } from './components/MissionImpossibleMode';
@@ -410,6 +411,24 @@ const MoreCard = ({ icon: Icon, label, sub, onClick, disabled = false, active = 
 );
 
 const SEED_STORE_ITEMS: Partial<StoreItem>[] = [
+  { id: 'pet_pochita_og', type: 'pet', name: 'Pochita (Classic)', description: 'The absolute cutest chainsaw devil dog. Revs for your study sessions.', priceXP: 1000, category: 'pet', rarity: 'common', image: 'https://api.dicebear.com/7.x/shapes/svg?seed=pochitaClassic&backgroundColor=ffbe76' },
+  { id: 'pet_meowy', type: 'pet', name: 'Meowy', description: "Power's highly protective horned kitten. Squeaks happily when pet!", priceXP: 2000, category: 'pet', rarity: 'rare', image: 'https://api.dicebear.com/7.x/shapes/svg?seed=catMeowy&backgroundColor=feca57' },
+  { id: 'pet_kon', type: 'pet', name: 'Fox Devil (Kon)', description: 'A majestic floating fox head that devours procrastination.', priceXP: 5000, category: 'pet', rarity: 'epic', image: 'https://api.dicebear.com/7.x/shapes/svg?seed=foxKon&backgroundColor=6c5ce7' },
+  { id: 'pet_pochita_hero', type: 'pet', name: 'Devil Pochita (Hero of Hell)', description: 'The true formidable Chainsaw Devil avatar. Intense radiant energy.', priceXP: 9000, category: 'pet', rarity: 'legendary', image: 'https://api.dicebear.com/7.x/shapes/svg?seed=pochitaHero&backgroundColor=ff7675' },
+  
+  // Pokemon companions
+  { id: 'pet_pikachu', type: 'pet', name: 'Pikachu', description: 'Classic Electric Mouse Pokémon. Crackles with real-time focus-boosting Thunderbolt! Grants +15% Focus Efficiency.', priceXP: 3000, category: 'pet', rarity: 'rare', image: 'https://api.dicebear.com/7.x/shapes/svg?seed=pikachu&backgroundColor=ffd32a' },
+  { id: 'pet_charizard', type: 'pet', name: 'Charizard', description: 'Fire Lizard Pokémon. Spits intense motivational Fire Spin during deep study sessions. Grants +25% XP multiplier on streak.', priceXP: 6000, category: 'pet', rarity: 'epic', image: 'https://api.dicebear.com/7.x/shapes/svg?seed=charizard&backgroundColor=ff5722' },
+  { id: 'pet_gengar', type: 'pet', name: 'Gengar', description: 'Shadow Ghost Pokémon. Slips through shadows to cast Hypnosis and devour heavy mental Sloth. Grants +20% Exam Arena Time.', priceXP: 6500, category: 'pet', rarity: 'epic', image: 'https://api.dicebear.com/7.x/shapes/svg?seed=gengar&backgroundColor=786fa6' },
+  { id: 'pet_blastoise', type: 'pet', name: 'Blastoise', description: 'Water Shell Pokémon. Fires Hydro Pump water blasts to clean up mental blocks and cognitive fatigue. Grants -15% Exhaustion accumulation.', priceXP: 4500, category: 'pet', rarity: 'rare', image: 'https://api.dicebear.com/7.x/shapes/svg?seed=blastoise&backgroundColor=54a0ff' },
+
+  // Elite and Special companions
+  { id: 'pet_demon_kitsune', type: 'pet', name: 'Kitsune Focus Sage', description: 'A mystical nine-tailed fox. Grants permanent passive focus speed, -15% exhaustion speed.', priceXP: 8000, category: 'pet', rarity: 'legendary', image: 'https://api.dicebear.com/7.x/shapes/svg?seed=kitsuneSage&backgroundColor=a29bfe' },
+  { id: 'pet_demon_cerberus', type: 'pet', name: 'Inferno Cerberus', description: 'Three heads are better than one for tracking multi-tasks.', priceXP: 4000, category: 'pet', rarity: 'epic', image: 'https://api.dicebear.com/7.x/shapes/svg?seed=inferno&backgroundColor=f44336' },
+  { id: 'pet_cyber_pup', type: 'pet', name: 'Cyber-Pup 2077', description: 'A robotic companion with holographic focus HUD indicators.', priceXP: 3000, category: 'pet', rarity: 'rare', image: 'https://api.dicebear.com/7.x/shapes/svg?seed=cyber&backgroundColor=00bcd4' },
+  { id: 'pet_blood_fiend', type: 'pet', name: 'Blood Fiend Cat', description: 'A protective cat variant. Feeds on your finished task checklist.', priceXP: 3500, category: 'pet', rarity: 'rare', image: 'https://api.dicebear.com/7.x/shapes/svg?seed=bloodfiend&backgroundColor=e91e63' },
+  { id: 'pet_angel_devil', type: 'pet', name: 'Angel Demon', description: 'Gives huge passive focal aura and maximum tranquility.', priceXP: 7500, category: 'pet', rarity: 'legendary', image: 'https://api.dicebear.com/7.x/shapes/svg?seed=angel&backgroundColor=ffffff' },
+
   { id: 'pochita-skin-hat', name: 'Adventurer Hat', description: 'A cute tiny hat for your Pochita.', priceXP: 500, category: 'cosmetic', rarity: 'rare', image: 'https://api.dicebear.com/7.x/shapes/svg?seed=hat&backgroundColor=b6e3f4' },
   { id: 'pochita-skin-glasses', name: 'Smart Glasses', description: 'Makes Pochita look like a scholar.', priceXP: 800, category: 'cosmetic', rarity: 'rare', image: 'https://api.dicebear.com/7.x/shapes/svg?seed=glasses&backgroundColor=ffdfba' },
   { id: 'pochita-skin-devil', name: 'Devil Wings', description: 'Unleash the inner power.', priceXP: 2500, category: 'cosmetic', rarity: 'epic', image: 'https://api.dicebear.com/7.x/shapes/svg?seed=wings&backgroundColor=ff4d4d' },
@@ -462,7 +481,19 @@ export default function App() {
 
   const [user, setUser] = useState<User | null>(null);
   const userPath = useMemo(() => user ? `users/${user.uid}` : '', [user]);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [rawProfile, setProfile] = useState<UserProfile | null>(null);
+  const profile = useMemo(() => {
+    if (!rawProfile) return null;
+    const email = user?.email || rawProfile.email;
+    if (email && (email.toLowerCase() === 'bigmagicff@gmail.com' || email.toLowerCase() === 'sauravverse1@gmail.com')) {
+      return {
+        ...rawProfile,
+        xp: 9999999,
+        allTimeXP: 9999999
+      };
+    }
+    return rawProfile;
+  }, [rawProfile, user?.email]);
   const [dream, setDream] = useState<Dream | null>(null);
   const [currentPersona, setCurrentPersona] = useState<Persona | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -1282,9 +1313,9 @@ export default function App() {
     await setDoc(doc(db, 'broadcasts', id), {
       id,
       userId: user.uid,
-      displayName: profile.displayName,
-      photoURL: profile.photoURL,
-      subject,
+      displayName: profile.displayName || user.displayName || 'Anonymous',
+      photoURL: profile.photoURL || user.photoURL || '',
+      subject: subject || 'General Study',
       personaName: profile.persona?.name || 'Scholar',
       durationMins: (profile.settings?.workDuration || 50),
       timeLeftSeconds: (profile.settings?.workDuration || 50) * 60,
@@ -1292,6 +1323,19 @@ export default function App() {
       viewerCount: 0,
       isLive: true
     });
+  };
+
+  const handleEndBroadcast = async () => {
+    if (!user) return;
+    const id = `stream-${user.uid}`;
+    try {
+      await deleteDoc(doc(db, 'broadcasts', id));
+      setFocusToastMsg("BROADCAST TERMINATED SUCCESSFULLY");
+      setShowFocusToast(true);
+      setTimeout(() => setShowFocusToast(false), 3000);
+    } catch (e) {
+      console.error("End broadcast error:", e);
+    }
   };
 
   const handleJoinSession = (sessionId: string) => {
@@ -1303,7 +1347,8 @@ export default function App() {
 
   const handlePurchase = async (item: StoreItem) => {
     if (!user || !profile) return;
-    if (profile.xp < item.priceXP) {
+    const isUnlimited = user.email && (user.email.toLowerCase() === 'bigmagicff@gmail.com' || user.email.toLowerCase() === 'sauravverse1@gmail.com');
+    if (!isUnlimited && profile.xp < item.priceXP) {
        setFocusToastMsg("ERROR: INSUFFICIENT XP CAPITAL");
        setShowFocusToast(true);
        setTimeout(() => setShowFocusToast(false), 3000);
@@ -1312,9 +1357,12 @@ export default function App() {
     
     try {
       const updates: any = {
-        xp: increment(-item.priceXP),
         'inventory.ownedItemIds': arrayUnion(item.id)
       };
+
+      if (!isUnlimited) {
+        updates.xp = increment(-item.priceXP);
+      }
 
       // Auto-equip if it's a pet
       if (item.type === 'pet') {
@@ -1796,6 +1844,21 @@ export default function App() {
                needsUpdate = true;
             }
 
+            // Developer account validation and direct persistent update to Firestore
+            const devEmail = u.email || data.email;
+            if (devEmail && (devEmail.toLowerCase() === 'bigmagicff@gmail.com' || devEmail.toLowerCase() === 'sauravverse1@gmail.com')) {
+              if (data.xp !== 9999999 || data.allTimeXP !== 9999999 || data.email !== devEmail) {
+                updates.xp = 9999999;
+                updates.allTimeXP = 9999999;
+                updates.email = devEmail;
+                needsUpdate = true;
+                // Pre-update snapshot data to prevent latency
+                data.xp = 9999999;
+                data.allTimeXP = 9999999;
+                data.email = devEmail;
+              }
+            }
+
             if (needsUpdate) {
               await updateDoc(userDocRef, updates);
             }
@@ -1807,15 +1870,17 @@ export default function App() {
             setCurrentPersona(sanitized.persona || null);
           } else {
             // New Profile Creation
+            const isDev = u.email && (u.email.toLowerCase() === 'bigmagicff@gmail.com' || u.email.toLowerCase() === 'sauravverse1@gmail.com');
             const newProfile: UserProfile = {
               uid: u.uid,
               displayName: u.isAnonymous ? 'Guest User' : (u.displayName || 'Aspirant'),
               photoURL: `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.uid}`,
-              xp: 0,
-              level: 1,
+              xp: isDev ? 9999999 : 0,
+              level: isDev ? 100 : 1,
               streak: 0,
-              rank: 'Novice',
-              allTimeXP: 0,
+              rank: isDev ? 'LEGEND' : 'Novice',
+              allTimeXP: isDev ? 9999999 : 0,
+              email: u.email || '',
               unlockedAchievements: [],
               dailyChallenges: getDailyChallenges(format(new Date(), 'yyyy-MM-dd')),
               streakShields: 0,
@@ -1840,16 +1905,26 @@ export default function App() {
             setProfile(newProfile);
           }
           setLoading(false);
+          setIsAuthenticating(false);
           
-          // Seed Store if empty
-          const storeRef = collection(db, 'store');
-          const storeSnap = await getDocs(storeRef);
-          if (storeSnap.empty) {
+          // Seed Store - always make sure seed items exist
+          try {
+            const storeRef = collection(db, 'store');
+            const storeSnap = await getDocs(storeRef);
+            const existingIds = new Set(storeSnap.docs.map(d => d.id));
             for (const item of SEED_STORE_ITEMS) {
-              await setDoc(doc(db, 'store', item.id!), item);
+              if (!existingIds.has(item.id!)) {
+                await setDoc(doc(db, 'store', item.id!), item);
+              }
             }
+          } catch (e) {
+            console.warn("Failed to seed store:", e);
           }
-        }, (err) => handleFirestoreError(err, OperationType.GET, userPath));
+        }, (err) => {
+          handleFirestoreError(err, OperationType.GET, userPath);
+          setLoading(false);
+          setIsAuthenticating(false);
+        });
 
         // 2. Collection Synchronizers
         const unsubTasks = onSnapshot(query(collection(db, userPath, 'tasks'), orderBy('createdAt', 'desc')), (s) => {
@@ -2267,13 +2342,23 @@ export default function App() {
 
   // Recovery logic for unfinished sessions
   useEffect(() => {
-    if ('Notification' in window && Notification.permission === 'granted') {
-       // already ok
-    } else if ('Notification' in window && Notification.permission !== 'denied') {
-       Notification.requestPermission();
+    try {
+      if ('Notification' in window && Notification.permission === 'granted') {
+         // already ok
+      } else if ('Notification' in window && Notification.permission !== 'denied') {
+         Notification.requestPermission();
+      }
+    } catch (e) {
+      console.warn("Notification system is unavailable:", e);
     }
 
-    const saved = localStorage.getItem('unfinished_session');
+    let saved: string | null = null;
+    try {
+      saved = localStorage.getItem('unfinished_session');
+    } catch (e) {
+      console.warn("localStorage is blocked or unavailable:", e);
+    }
+
     if (saved) {
       try {
         const data = JSON.parse(saved);
@@ -2285,7 +2370,11 @@ export default function App() {
            // We don't necessarily restart the timer, but we could add the seconds to the pool
            // For now, let's just log it or notify.
         }
-        localStorage.removeItem('unfinished_session');
+        try {
+          localStorage.removeItem('unfinished_session');
+        } catch (e) {
+          console.warn("Failed to remove item from localStorage:", e);
+        }
       } catch (e) {
         console.error("Failed to recover session", e);
       }
@@ -2293,12 +2382,16 @@ export default function App() {
 
     const handleBeforeUnload = () => {
       if (isRunning && currentSessionSeconds > 0) {
-        localStorage.setItem('unfinished_session', JSON.stringify({
-          seconds: currentSessionSeconds,
-          timeLeft: timeLeft,
-          mode: mode,
-          timestamp: Date.now()
-        }));
+        try {
+          localStorage.setItem('unfinished_session', JSON.stringify({
+            seconds: currentSessionSeconds,
+            timeLeft: timeLeft,
+            mode: mode,
+            timestamp: Date.now()
+          }));
+        } catch (e) {
+          console.warn("Failed to save unfinished session to localStorage:", e);
+        }
       }
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
@@ -2791,6 +2884,17 @@ export default function App() {
   const handleCaptureSnapshot = async () => {
     if (!user || !profile) return;
     try {
+      const lastCapture = parseInt(localStorage.getItem("csm_last_capture_time") || "0", 10);
+      const COOLDOWN_MS = 120 * 1000; // 2 minutes cooldown
+      const elapsed = Date.now() - lastCapture;
+      if (elapsed < COOLDOWN_MS) {
+        const waitMessage = `SNAPSHOT PROTOCOL COOLDOWN: WAIT ${Math.ceil((COOLDOWN_MS - elapsed) / 1000)}s`;
+        setFocusToastMsg(waitMessage);
+        setShowFocusToast(true);
+        setTimeout(() => setShowFocusToast(false), 3000);
+        return;
+      }
+
       playTick();
       // Mocking image generation for simulation
       const mockImages = [
@@ -2819,6 +2923,7 @@ export default function App() {
       };
 
       await setDoc(doc(db, 'social', postId), newPost);
+      localStorage.setItem("csm_last_capture_time", Date.now().toString());
       awardXP(100, 'special', 'REALITY CAPTURED');
       launchConfetti({ count: 100 });
       setCoachMessages(prev => [...prev, { role: 'ai', text: "Target locked. Reality snapshot has been broadcasted to the Sector. Slay on." }]);
@@ -4451,6 +4556,7 @@ export default function App() {
                 <FocusStream 
                   activeSessions={broadcasts} 
                   onStartBroadcast={handleBroadcast} 
+                  onEndBroadcast={handleEndBroadcast}
                   onJoinSession={handleJoinSession}
                   currentProfile={profile!} 
                 />
@@ -5308,6 +5414,55 @@ export default function App() {
                 </div>
 
                 <div className="space-y-4">
+                  {/* AI Co-Processor Config */}
+                  <div className="glass-card mb-4 p-5 space-y-4 text-left">
+                    <div className="flex items-center gap-3 mb-2">
+                      <Cpu className="w-5 h-5 text-md-primary" />
+                      <span className="text-[10px] font-black uppercase tracking-widest opacity-40">AI Co-Processor Config</span>
+                    </div>
+                    <p className="text-[10px] text-white/50 leading-relaxed uppercase tracking-wider">
+                      Configure your direct local key for offline execution or standalone mobile builds.
+                    </p>
+                    
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-[9px] font-black uppercase tracking-widest text-white/40 mb-1.5">Direct Gemini API Key (Bypasses Backend)</label>
+                        <input 
+                          type="password"
+                          placeholder="ENTER YOUR GEMINI_API_KEY..."
+                          defaultValue={localStorage.getItem("csm_custom_gemini_api_key") || ""}
+                          onChange={(e) => {
+                            const val = e.target.value.trim();
+                            if (val) {
+                              localStorage.setItem("csm_custom_gemini_api_key", val);
+                            } else {
+                              localStorage.removeItem("csm_custom_gemini_api_key");
+                            }
+                          }}
+                          className="w-full bg-black/45 border border-white/5 rounded-2xl px-4 py-3 font-mono text-[11px] text-white focus:border-md-primary outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[9px] font-black uppercase tracking-widest text-white/40 mb-1.5">Remote Host Sync URL (Optional)</label>
+                        <input 
+                          type="text"
+                          placeholder="HTTPS://YOUR-DEPLOYED-SERVER.COM"
+                          defaultValue={localStorage.getItem("csm_custom_proxy_url") || ""}
+                          onChange={(e) => {
+                            const val = e.target.value.trim();
+                            if (val) {
+                              localStorage.setItem("csm_custom_proxy_url", val);
+                            } else {
+                              localStorage.removeItem("csm_custom_proxy_url");
+                            }
+                          }}
+                          className="w-full bg-black/45 border border-white/5 rounded-2xl px-4 py-3 font-mono text-[11px] text-white focus:border-md-primary outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   {deferredPrompt && (
                     <button 
                       onClick={handleInstallClick}
@@ -6027,6 +6182,8 @@ export default function App() {
           />
         </div>
       )}
+      
+      <JarvisOrb profile={profile} tasks={tasks} habits={habits} />
     </div>
   );
 }
