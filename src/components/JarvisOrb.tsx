@@ -74,10 +74,23 @@ export const JarvisOrb = ({ profile, tasks, habits }: { profile?: any, tasks?: a
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
-      const audioCtx = new AudioContext({ sampleRate: 16000 });
+      const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtxClass) {
+        throw new Error("Web Audio API is not supported in this environment");
+      }
+      let audioCtx: AudioContext;
+      try {
+        audioCtx = new AudioCtxClass({ sampleRate: 16000 });
+      } catch (err) {
+        audioCtx = new AudioCtxClass();
+      }
       audioCtx.resume();
       audioCtxRef.current = audioCtx;
       nextStartTimeRef.current = 0; // reset scheduling
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("Microphone access is not supported or allowed in this environment (requires secure context HTTPS or Android manifest permissions).");
+      }
 
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
