@@ -421,6 +421,16 @@ const SEED_STORE_ITEMS: Partial<StoreItem>[] = [
   { id: 'pet_charizard', type: 'pet', name: 'Charizard', description: 'Fire Lizard Pokémon. Spits intense motivational Fire Spin during deep study sessions. Grants +25% XP multiplier on streak.', priceXP: 6000, category: 'pet', rarity: 'epic', image: 'https://api.dicebear.com/7.x/shapes/svg?seed=charizard&backgroundColor=ff5722' },
   { id: 'pet_gengar', type: 'pet', name: 'Gengar', description: 'Shadow Ghost Pokémon. Slips through shadows to cast Hypnosis and devour heavy mental Sloth. Grants +20% Exam Arena Time.', priceXP: 6500, category: 'pet', rarity: 'epic', image: 'https://api.dicebear.com/7.x/shapes/svg?seed=gengar&backgroundColor=786fa6' },
   { id: 'pet_blastoise', type: 'pet', name: 'Blastoise', description: 'Water Shell Pokémon. Fires Hydro Pump water blasts to clean up mental blocks and cognitive fatigue. Grants -15% Exhaustion accumulation.', priceXP: 4500, category: 'pet', rarity: 'rare', image: 'https://api.dicebear.com/7.x/shapes/svg?seed=blastoise&backgroundColor=54a0ff' },
+  { id: 'pet_eevee', type: 'pet', name: 'Eevee', description: 'Evolution Pokémon. Adapts its cute fluffiness to match your current focus environment. Grants +15% Adaptability bonus to all habit gains.', priceXP: 3500, category: 'pet', rarity: 'rare', image: 'https://api.dicebear.com/7.x/shapes/svg?seed=eevee&backgroundColor=b17a4c' },
+  { id: 'pet_mew', type: 'pet', name: 'Mew', description: 'New Species Pokémon. Floats gracefully around your study desk, emitting pink calm brainwaves. Grants +10% daily passive XP regeneration.', priceXP: 8500, category: 'pet', rarity: 'legendary', image: 'https://api.dicebear.com/7.x/shapes/svg?seed=mew&backgroundColor=fda7df' },
+
+  // Doraemon Companions
+  { id: 'pet_doraemon', type: 'pet', name: 'Doraemon', description: 'The legendary robotic cat from the 22nd Century! pulls amazing focus gadgets from his 4D pocket, like the Memory Bread. Grants +30% Focus Recall.', priceXP: 7500, category: 'pet', rarity: 'legendary', image: 'https://api.dicebear.com/7.x/shapes/svg?seed=doraemon&backgroundColor=0096e6' },
+  { id: 'pet_dorami', type: 'pet', name: 'Dorami', description: "Doraemon's incredibly smart, yellow robot sister! Ready to help you organize your daily planner with pristine care. Grants +10% extra gold from achievements.", priceXP: 5000, category: 'pet', rarity: 'epic', image: 'https://api.dicebear.com/7.x/shapes/svg?seed=dorami&backgroundColor=ffd43b' },
+
+  // Shinchan Companions
+  { id: 'pet_shiro', type: 'pet', name: 'Shiro (Whitey)', description: "Shinchan's extremely cute, round, and fluffy companion. Can turn into a cotton candy ball to relieve intense exam tension. Grants +20% Stress Sanctuary aura.", priceXP: 2500, category: 'pet', rarity: 'common', image: 'https://api.dicebear.com/7.x/shapes/svg?seed=shiro&backgroundColor=ffffff' },
+  { id: 'pet_shinchan', type: 'pet', name: 'Shin-chan', description: 'An ultra-mischievous but hilarious study partner. Does the elephant dance to keep you laughing and break through heavy focus boredom! Grants +40% Boredom immunity.', priceXP: 5500, category: 'pet', rarity: 'epic', image: 'https://api.dicebear.com/7.x/shapes/svg?seed=shinchan&backgroundColor=fcdbb0' },
 
   // Elite and Special companions
   { id: 'pet_demon_kitsune', type: 'pet', name: 'Kitsune Focus Sage', description: 'A mystical nine-tailed fox. Grants permanent passive focus speed, -15% exhaustion speed.', priceXP: 8000, category: 'pet', rarity: 'legendary', image: 'https://api.dicebear.com/7.x/shapes/svg?seed=kitsuneSage&backgroundColor=a29bfe' },
@@ -1800,125 +1810,131 @@ export default function App() {
 
         // 1. Core Profile Sync & Initialization
         const unsubProfile = onSnapshot(userDocRef, async (snap) => {
-          if (snap.exists()) {
-            let data = snap.data() as UserProfile;
-            const today = format(new Date(), 'yyyy-MM-dd');
-            
-            // Initialization Logic (Internal updates if needed)
-            let needsUpdate = false;
-            const updates: any = {};
-            const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
-
-            if (data.lastActiveDate !== today) {
-              updates.dailyChallenges = getDailyChallenges(today);
+          try {
+            if (snap.exists()) {
+              let data = snap.data() as UserProfile;
+              const today = format(new Date(), 'yyyy-MM-dd');
               
-              // Streak check logic from user requirements
-              if (data.lastActiveDate === yesterday) {
-                // Streak continues - incrementing streak happen on first focus or login?
-                // Usually logic is: did they hit DAILY GOAL yesterday?
-                // For simplicity, if they were active yesterday, they don't lose it today.
-              } else if (data.lastActiveDate !== today) {
-                // Gap detected
-                if ((data.streakShields || 0) > 0) {
-                  updates.streakShields = data.streakShields - 1;
-                  setFocusToastMsg('🛡 STREAK SHIELD CONSUMED');
-                  setShowFocusToast(true);
-                  setTimeout(() => setShowFocusToast(false), 3000);
-                } else {
-                  updates.streak = 0;
-                  setFocusToastMsg('💔 STREAK BROKEN');
-                  setShowFocusToast(true);
-                  setTimeout(() => setShowFocusToast(false), 3000);
+              // Initialization Logic (Internal updates if needed)
+              let needsUpdate = false;
+              const updates: any = {};
+              const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
+
+              if (data.lastActiveDate !== today) {
+                updates.dailyChallenges = getDailyChallenges(today);
+                
+                // Streak check logic from user requirements
+                if (data.lastActiveDate === yesterday) {
+                  // Streak continues - incrementing streak happen on first focus or login?
+                  // Usually logic is: did they hit DAILY GOAL yesterday?
+                  // For simplicity, if they were active yesterday, they don't lose it today.
+                } else if (data.lastActiveDate !== today) {
+                  // Gap detected
+                  if ((data.streakShields || 0) > 0) {
+                    updates.streakShields = data.streakShields - 1;
+                    setFocusToastMsg('🛡 STREAK SHIELD CONSUMED');
+                    setShowFocusToast(true);
+                    setTimeout(() => setShowFocusToast(false), 3000);
+                  } else {
+                    updates.streak = 0;
+                    setFocusToastMsg('💔 STREAK BROKEN');
+                    setShowFocusToast(true);
+                    setTimeout(() => setShowFocusToast(false), 3000);
+                  }
+                }
+
+                updates.lastActiveDate = today;
+                updates.dailyFocusSeconds = 0;
+                updates.dailySessions = 0;
+                needsUpdate = true;
+              }
+
+              // XP and Level boundary sanity check
+              if (typeof data.xp !== 'number' || isNaN(data.xp)) {
+                 updates.xp = 0;
+                 needsUpdate = true;
+              }
+
+              // Developer account validation and direct persistent update to Firestore
+              const devEmail = u.email || data.email;
+              if (devEmail && (devEmail.toLowerCase() === 'bigmagicff@gmail.com' || devEmail.toLowerCase() === 'sauravverse1@gmail.com')) {
+                if (data.xp !== 9999999 || data.allTimeXP !== 9999999 || data.email !== devEmail) {
+                  updates.xp = 9999999;
+                  updates.allTimeXP = 9999999;
+                  updates.email = devEmail;
+                  needsUpdate = true;
+                  // Pre-update snapshot data to prevent latency
+                  data.xp = 9999999;
+                  data.allTimeXP = 9999999;
+                  data.email = devEmail;
                 }
               }
 
-              updates.lastActiveDate = today;
-              updates.dailyFocusSeconds = 0;
-              updates.dailySessions = 0;
-              needsUpdate = true;
-            }
-
-            // XP and Level boundary sanity check
-            if (typeof data.xp !== 'number' || isNaN(data.xp)) {
-               updates.xp = 0;
-               needsUpdate = true;
-            }
-
-            // Developer account validation and direct persistent update to Firestore
-            const devEmail = u.email || data.email;
-            if (devEmail && (devEmail.toLowerCase() === 'bigmagicff@gmail.com' || devEmail.toLowerCase() === 'sauravverse1@gmail.com')) {
-              if (data.xp !== 9999999 || data.allTimeXP !== 9999999 || data.email !== devEmail) {
-                updates.xp = 9999999;
-                updates.allTimeXP = 9999999;
-                updates.email = devEmail;
-                needsUpdate = true;
-                // Pre-update snapshot data to prevent latency
-                data.xp = 9999999;
-                data.allTimeXP = 9999999;
-                data.email = devEmail;
+              if (needsUpdate) {
+                await updateDoc(userDocRef, updates);
               }
-            }
 
-            if (needsUpdate) {
-              await updateDoc(userDocRef, updates);
+              const sanitized = sanitizeProfile(data);
+              setProfile(sanitized);
+              if (sanitized.examPreference) setExamPreference(sanitized.examPreference);
+              setDream(sanitized.dream || null);
+              setCurrentPersona(sanitized.persona || null);
+            } else {
+              // New Profile Creation
+              const isDev = u.email && (u.email.toLowerCase() === 'bigmagicff@gmail.com' || u.email.toLowerCase() === 'sauravverse1@gmail.com');
+              const newProfile: UserProfile = {
+                uid: u.uid,
+                displayName: u.isAnonymous ? 'Guest User' : (u.displayName || 'Aspirant'),
+                photoURL: `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.uid}`,
+                xp: isDev ? 9999999 : 0,
+                level: isDev ? 100 : 1,
+                streak: 0,
+                rank: isDev ? 'LEGEND' : 'Novice',
+                allTimeXP: isDev ? 9999999 : 0,
+                email: u.email || '',
+                unlockedAchievements: [],
+                dailyChallenges: getDailyChallenges(format(new Date(), 'yyyy-MM-dd')),
+                streakShields: 0,
+                lastActiveDate: format(new Date(), 'yyyy-MM-dd'),
+                totalFocusSeconds: 0,
+                dailyFocusSeconds: 0,
+                dailySessions: 0,
+                pomodorosCompleted: 0,
+                health: { water: 0, protein: 0, sleep: 0 },
+                skills: { focus: 0, discipline: 0, consistency: 0 },
+                jee: { targetAIR: 100, weakChapters: [], strongChapters: [], completedChapters: [] },
+                settings: {
+                  workDuration: 25,
+                  breakDuration: 5,
+                  longBreakDuration: 15,
+                  ambientSound: 'none',
+                  notificationSound: 'default',
+                  autoStartNextSession: false
+                }
+              };
+              await setDoc(userDocRef, newProfile);
+              setProfile(newProfile);
             }
-
-            const sanitized = sanitizeProfile(data);
-            setProfile(sanitized);
-            if (sanitized.examPreference) setExamPreference(sanitized.examPreference);
-            setDream(sanitized.dream || null);
-            setCurrentPersona(sanitized.persona || null);
-          } else {
-            // New Profile Creation
-            const isDev = u.email && (u.email.toLowerCase() === 'bigmagicff@gmail.com' || u.email.toLowerCase() === 'sauravverse1@gmail.com');
-            const newProfile: UserProfile = {
-              uid: u.uid,
-              displayName: u.isAnonymous ? 'Guest User' : (u.displayName || 'Aspirant'),
-              photoURL: `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.uid}`,
-              xp: isDev ? 9999999 : 0,
-              level: isDev ? 100 : 1,
-              streak: 0,
-              rank: isDev ? 'LEGEND' : 'Novice',
-              allTimeXP: isDev ? 9999999 : 0,
-              email: u.email || '',
-              unlockedAchievements: [],
-              dailyChallenges: getDailyChallenges(format(new Date(), 'yyyy-MM-dd')),
-              streakShields: 0,
-              lastActiveDate: format(new Date(), 'yyyy-MM-dd'),
-              totalFocusSeconds: 0,
-              dailyFocusSeconds: 0,
-              dailySessions: 0,
-              pomodorosCompleted: 0,
-              health: { water: 0, protein: 0, sleep: 0 },
-              skills: { focus: 0, discipline: 0, consistency: 0 },
-              jee: { targetAIR: 100, weakChapters: [], strongChapters: [], completedChapters: [] },
-              settings: {
-                workDuration: 25,
-                breakDuration: 5,
-                longBreakDuration: 15,
-                ambientSound: 'none',
-                notificationSound: 'default',
-                autoStartNextSession: false
+            setLoading(false);
+            setIsAuthenticating(false);
+            
+            // Seed Store - always make sure seed items exist
+            try {
+              const storeRef = collection(db, 'store');
+              const storeSnap = await getDocs(storeRef);
+              const existingIds = new Set(storeSnap.docs.map(d => d.id));
+              for (const item of SEED_STORE_ITEMS) {
+                if (!existingIds.has(item.id!)) {
+                  await setDoc(doc(db, 'store', item.id!), item);
+                }
               }
-            };
-            await setDoc(userDocRef, newProfile);
-            setProfile(newProfile);
-          }
-          setLoading(false);
-          setIsAuthenticating(false);
-          
-          // Seed Store - always make sure seed items exist
-          try {
-            const storeRef = collection(db, 'store');
-            const storeSnap = await getDocs(storeRef);
-            const existingIds = new Set(storeSnap.docs.map(d => d.id));
-            for (const item of SEED_STORE_ITEMS) {
-              if (!existingIds.has(item.id!)) {
-                await setDoc(doc(db, 'store', item.id!), item);
-              }
+            } catch (e) {
+              console.warn("Failed to seed store:", e);
             }
           } catch (e) {
-            console.warn("Failed to seed store:", e);
+            console.error("Critical Profile Load/Sync Error:", e);
+            setLoading(false);
+            setIsAuthenticating(false);
           }
         }, (err) => {
           handleFirestoreError(err, OperationType.GET, userPath);

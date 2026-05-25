@@ -5,6 +5,132 @@ import { Sphere, MeshDistortMaterial } from "@react-three/drei";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "../lib/utils";
 
+// Check if WebGL is available to prevent fatal ThreeJS crashing inside sandboxed frames
+const isWebGLAvailable = (): boolean => {
+  try {
+    const canvas = document.createElement("canvas");
+    return !!(
+      window.WebGLRenderingContext &&
+      (canvas.getContext("webgl") || canvas.getContext("experimental-webgl"))
+    );
+  } catch (e) {
+    return false;
+  }
+};
+
+// React Error Boundary to catch any in-render ThreeJS/Canvas load failures
+class ErrorBoundary extends React.Component<
+  { fallback: React.ReactNode; children: React.ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: any, errorInfo: any) {
+    console.warn("ErrorBoundary caught ThreeJS rendering error in JarvisOrb:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback;
+    }
+    return this.props.children;
+  }
+}
+
+// Beautiful CSS Liquid Distort Glowing Orb fallback (high-fidelity & zero-GPU overhead)
+const FallbackGlowOrb = ({ audioLevel, state }: { audioLevel: number, state: "idle" | "listening" | "thinking" | "speaking" | "error" }) => {
+  const getColors = () => {
+    switch(state) {
+      case "listening": return ["from-emerald-400 to-green-600", "#10b981"]; // Green
+      case "thinking": return ["from-purple-500 to-blue-500", "#6366f1"]; // Purple/Blue
+      case "speaking": return ["from-blue-400 to-cyan-500", "#3b82f6"]; // Blue
+      case "error": return ["from-red-500 to-rose-600", "#f43f5e"]; // Red
+      default: return ["from-zinc-500 to-zinc-700", "#71717a"]; // Gray
+    }
+  };
+
+  const [colorClass, shadowColor] = getColors();
+
+  return (
+    <div className="relative w-48 h-48 mx-auto flex items-center justify-center">
+      {/* Outer Glow Halo */}
+      <motion.div
+        animate={{
+          scale: state === "idle" ? [0.95, 1.05, 0.95] : [1 - audioLevel * 0.1, 1.2 + audioLevel * 0.5, 1 - audioLevel * 0.1],
+          opacity: state === "idle" ? [0.15, 0.3, 0.15] : [0.3, 0.7, 0.3],
+        }}
+        transition={{
+          duration: state === "idle" ? 3 : 0.8,
+          repeat: Infinity,
+          ease: "easeInOut"
+        }}
+        className={cn("absolute w-40 h-40 rounded-full blur-xl bg-gradient-to-r opacity-30", colorClass)}
+      />
+
+      {/* Pulsing Ripple circles */}
+      <AnimatePresence>
+        {(state === "listening" || state === "speaking") && (
+          <>
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0.5 }}
+              animate={{ scale: 1.6 + audioLevel * 0.8, opacity: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut" }}
+              className="absolute w-36 h-36 rounded-full border border-white/20 pointer-events-none"
+              style={{ borderColor: shadowColor }}
+            />
+            <motion.div
+              initial={{ scale: 0.6, opacity: 0.3 }}
+              animate={{ scale: 2.2 + audioLevel * 1.2, opacity: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 2, repeat: Infinity, ease: "easeOut", delay: 0.5 }}
+              className="absolute w-36 h-36 rounded-full border border-white/10 pointer-events-none"
+              style={{ borderColor: shadowColor }}
+            />
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Main Core Orb */}
+      <motion.div
+        animate={{
+          scale: state === "idle" ? [1, 1.05, 1] : [1, 1 + audioLevel * 0.4, 1],
+          rotate: [0, 360],
+          borderRadius: state === "idle" 
+            ? ["42% 58% 70% 30% / 45% 45% 55% 55%", "70% 30% 52% 48% / 60% 40% 60% 40%", "42% 58% 70% 30% / 45% 45% 55% 55%"] 
+            : ["30% 70% 70% 30% / 30% 30% 70% 70%", "50% 50% 20% 80% / 20% 80% 20% 80%", "30% 70% 70% 30% / 30% 30% 70% 70%"],
+        }}
+        transition={{
+          scale: { duration: 0.3 },
+          rotate: { duration: state === "idle" ? 12 : 5, repeat: Infinity, ease: "linear" },
+          borderRadius: { duration: state === "idle" ? 6 : 3, repeat: Infinity, ease: "easeInOut" }
+        }}
+        className={cn("w-32 h-32 bg-gradient-to-tr shadow-2xl relative flex items-center justify-center overflow-hidden border border-white/10", colorClass)}
+        style={{
+          boxShadow: `0 0 40px ${shadowColor}40`
+        }}
+      >
+        {/* Core Glassmorphic glare */}
+        <div className="absolute top-2 left-2 w-12 h-12 rounded-full bg-white/20 blur-[2px]" />
+        
+        {/* Inner core energy */}
+        <motion.div 
+          animate={{
+            scale: state === "idle" ? 0.8 : 0.6 + audioLevel * 0.6,
+            opacity: [0.3, 0.6, 0.3]
+          }}
+          transition={{ duration: 1, repeat: Infinity }}
+          className="w-16 h-16 rounded-full bg-white blur-md"
+        />
+      </motion.div>
+    </div>
+  );
+};
+
 // Make the orb distort and rotate based on audio level
 const OrbMesh = ({ audioLevel, state }: { audioLevel: number, state: "idle" | "listening" | "thinking" | "speaking" | "error" }) => {
   const meshRef = useRef<any>(null);
@@ -254,12 +380,18 @@ export const JarvisOrb = ({ profile, tasks, habits }: { profile?: any, tasks?: a
                </div>
 
                {/* Orb Canvas */}
-               <div className="h-64 w-full bg-gradient-to-b from-black/0 to-blue-900/10">
-                 <Canvas camera={{ position: [0, 0, 3] }}>
-                    <ambientLight intensity={0.5} />
-                    <directionalLight position={[10, 10, 10]} intensity={1} />
-                    <OrbMesh audioLevel={audioLevel} state={state} />
-                 </Canvas>
+               <div className="h-64 w-full bg-gradient-to-b from-black/0 to-blue-900/10 flex items-center justify-center">
+                 <ErrorBoundary fallback={<FallbackGlowOrb audioLevel={audioLevel} state={state} />}>
+                   {isWebGLAvailable() ? (
+                     <Canvas camera={{ position: [0, 0, 3] }}>
+                        <ambientLight intensity={0.5} />
+                        <directionalLight position={[10, 10, 10]} intensity={1} />
+                        <OrbMesh audioLevel={audioLevel} state={state} />
+                     </Canvas>
+                   ) : (
+                     <FallbackGlowOrb audioLevel={audioLevel} state={state} />
+                   )}
+                 </ErrorBoundary>
                </div>
 
                {/* Controls / Status */}

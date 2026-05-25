@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Heart, Zap } from 'lucide-react';
-import { playPochitaBark, playPochitaEngine } from '../lib/audio';
+import { playPochitaBark, playPochitaEngine, playPetSound } from '../lib/audio';
 import { cn } from '../lib/utils';
+import { PetAvatarRenderer } from './PetAvatarRenderer';
 
 const PET_VOICES = {
   default: [
@@ -42,6 +43,66 @@ const PET_VOICES = {
     "Dream of toast. Conquer the exam.",
     "THE HERO OF HELL WEIGHS YOUR RESOLVE. FOCUS NOW.",
     "RRR-R-REVVING! (Hellfire rages for your productivity!)"
+  ],
+  pikachu: [
+    "Pika-pika! Electric power of productivity!",
+    "Chu! Focus Thunderbolt activated!",
+    "Pikachuuu! Slay this session, feel the spark!",
+    "Pika, pika! (Crackles with focus-boosting energy!)"
+  ],
+  eevee: [
+    "Ee-vee! Adapting to focus style!",
+    "Vee! Snuggles and high scores!",
+    "Cute head tilt. You can do it!",
+    "Eevee! (Wags tail with extreme adaptability!)"
+  ],
+  mew: [
+    "Mew... (Floats around you, radiating positive pink aura.)",
+    "Prrr... (Unlocking genetic potential of focus!)",
+    "Mew! (Curious gaze motivates your spirit.)",
+    "Mew-mew! (Emitting calm study brainwaves!)"
+  ],
+  doraemon: [
+    "Nobita, focus! Memory Bread is ready!",
+    "Pulls out Anywhere Door... directly to the desk!",
+    "Let's use the Time Hand to gain 10 more minutes!",
+    "Doraemon is here! Any homework can be solved with focus!"
+  ],
+  dorami: [
+    "Big Brother is too lazy, let me organize this checklist!",
+    "Time to align your studies beautifully!",
+    "Stay hydrated and focus with perfect posture!",
+    "Dorami is cataloging your career milestones!"
+  ],
+  shiro: [
+    "Bow woof! Fluffy white cotton candy energy!",
+    "Shiro wants to roll around for your achievements!",
+    "Wags tail. Complete this card and play with me!",
+    "Shiro turns into a soft sphere of ultimate focus peace!"
+  ],
+  shinchan: [
+    "Boobies... oh, wait, STUDY DEVIL!",
+    "Doing the elephant dance... don't look, just focus!",
+    "Look at my wiggle-wiggle! Hehehe, keep studying!",
+    "Action Kamen says: FOCUS AND VICTORY!"
+  ],
+  charizard: [
+    "GRAAAR! (Infernal motivational fire spin!)",
+    "Flame of focus burns bright!",
+    "Conquer the distraction with flames!",
+    "Charizard roars! Your productivity is on fire!"
+  ],
+  blastoise: [
+    "Blast! Clean water stream wash cognitive tired!",
+    "Hydro Pump mental blocks!",
+    "Stay cool, study steady!",
+    "Blastoise shields you from social media drift!"
+  ],
+  gengar: [
+    "Keke... devouring your stress shadow!",
+    "Phantom grin lights your focus dark!",
+    "Shadow Punching procrastination!",
+    "Gengar cackles in the corner, keeping homework safe!"
   ]
 };
 
@@ -123,21 +184,21 @@ export const PochitaPet: React.FC<PochitaPetProps> = ({ timerRunning, mode, cele
     const handleEvent = () => {
         setIsBarking(true);
         setExpression('bark');
-        playPochitaBark();
+        playPetSound(activePetId || 'pet_pochita_og');
         
         let msg = "";
         switch(lastEvent.type) {
             case 'task_complete':
-                msg = "Woof! Task sliced! Great job!";
+                msg = activePetId === 'pet_shinchan' ? "Ooh! Slayed it! Want to see my wiggle dance?" : "A perfect completion! Amazing job!";
                 break;
             case 'session_start':
-                msg = "Engine revving! Let's hunt some goals!";
+                msg = activePetId === 'pet_shinchan' ? "Time to focus, or I'll do the elephant dance!" : "Let's begin! Focused energy activated!";
                 break;
             case 'xp_gain':
-                msg = "Grrr! Growing stronger! I like this!";
+                msg = "Yes! Stronger together! Growing stronger!";
                 break;
             case 'contract_signed':
-                msg = "A contract? Don't break it, or there will be a price!";
+                msg = "A focus contract seal has been established!";
                 break;
         }
         setMessage(msg);
@@ -150,7 +211,7 @@ export const PochitaPet: React.FC<PochitaPetProps> = ({ timerRunning, mode, cele
     };
 
     handleEvent();
-  }, [lastEvent]);
+  }, [lastEvent, activePetId]);
 
   const barkTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const moveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -200,22 +261,36 @@ export const PochitaPet: React.FC<PochitaPetProps> = ({ timerRunning, mode, cele
     setPetCount(prev => prev + 1);
     
     if (isBarking) {
-        // Just play a happy engine sound if already barking
-        playPochitaEngine();
+        if (!activePetId || activePetId === 'pet_pochita_og' || activePetId.includes('pochita')) {
+            playPochitaEngine();
+        } else {
+            playPetSound(activePetId);
+        }
         return;
     }
     
     setIsBarking(true);
     setExpression('bark');
-    playPochitaBark();
+    playPetSound(activePetId || 'pet_pochita_og');
     
-    // Small engine rev after a split second
-    setTimeout(() => playPochitaEngine(), 200);
+    if (!activePetId || activePetId === 'pet_pochita_og' || activePetId.includes('pochita')) {
+        setTimeout(() => playPochitaEngine(), 200);
+    }
 
     const getPetMotivations = () => {
       if (activePetId === 'pet_meowy' || activePetId === 'pet_blood_fiend') return PET_VOICES.meowy;
       if (activePetId === 'pet_kon' || activePetId === 'pet_demon_kitsune') return PET_VOICES.kon;
-      if (activePetId === 'pet_pochita_hero' || activePetId === 'pet_angel_devil') return PET_VOICES.pochita_hero;
+      if (activePetId === 'pet_pochita_hero' || activePetId === 'pet_pochita_dark') return PET_VOICES.pochita_hero;
+      if (activePetId === 'pet_pikachu') return PET_VOICES.pikachu;
+      if (activePetId === 'pet_eevee') return PET_VOICES.eevee;
+      if (activePetId === 'pet_mew') return PET_VOICES.mew;
+      if (activePetId === 'pet_doraemon') return PET_VOICES.doraemon;
+      if (activePetId === 'pet_dorami') return PET_VOICES.dorami;
+      if (activePetId === 'pet_shiro') return PET_VOICES.shiro;
+      if (activePetId === 'pet_shinchan') return PET_VOICES.shinchan;
+      if (activePetId === 'pet_charizard') return PET_VOICES.charizard;
+      if (activePetId === 'pet_blastoise') return PET_VOICES.blastoise;
+      if (activePetId === 'pet_gengar') return PET_VOICES.gengar;
       return PET_VOICES.default;
     };
     
@@ -929,10 +1004,17 @@ export const PochitaPet: React.FC<PochitaPetProps> = ({ timerRunning, mode, cele
                   scale: isBarking ? 1.1 : 1
                 }}
                 transition={{ duration: 0.5, repeat: Infinity }}
-                className={cn("w-24 h-24 rounded-3xl overflow-hidden glass-card p-2 border-2", glowShadow)}
+                className={cn("w-24 h-24 rounded-3xl overflow-hidden glass-card p-2 border-2 flex items-center justify-center", glowShadow)}
                 style={{ transform: `scaleX(${direction})` }}
               >
-                <img src={petImageUrl!} alt="Pet" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                <PetAvatarRenderer 
+                  petId={activePetId!} 
+                  className="w-20 h-20" 
+                  xp={xp} 
+                  expression={expression} 
+                  isBarking={isBarking} 
+                  timerRunning={timerRunning}
+                />
               </motion.div>
             )}
         </motion.div>

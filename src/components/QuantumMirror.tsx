@@ -11,9 +11,10 @@ interface QuantumMirrorProps {
   onClose: () => void;
 }
 
-export const QuantumMirror: React.FC<QuantumMirrorProps> = ({ profile, sessions, onClose }) => {
-  const totalFocus = sessions.reduce((acc, s) => acc + s.duration, 0);
-  const avgFocus = sessions.length > 0 ? totalFocus / sessions.length : 0;
+export const QuantumMirror: React.FC<QuantumMirrorProps> = ({ profile, sessions = [], onClose }) => {
+  const safeSessions = Array.isArray(sessions) ? sessions : [];
+  const totalFocus = safeSessions.reduce((acc, s) => acc + (s && typeof s.duration === 'number' ? s.duration : 0), 0);
+  const avgFocus = safeSessions.length > 0 ? totalFocus / safeSessions.length : 0;
   
   return (
     <motion.div 

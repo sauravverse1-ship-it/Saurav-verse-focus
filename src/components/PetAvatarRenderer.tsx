@@ -5,9 +5,114 @@ interface PetAvatarRendererProps {
   petId: string;
   className?: string;
   xp?: number;
+  expression?: string;
+  isBarking?: boolean;
+  timerRunning?: boolean;
 }
 
-export const PetAvatarRenderer: React.FC<PetAvatarRendererProps> = ({ petId, className, xp = 0 }) => {
+const STYLE_BLOCK = `
+  @keyframes petFloat {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-7px); }
+  }
+  @keyframes petMewEthereal {
+    0%, 100% { transform: translateY(0px) rotate(1deg); }
+    50% { transform: translateY(-11px) rotate(-1deg); }
+  }
+  @keyframes pochitaThrottle {
+    0%, 100% { transform: translate(0, 0) rotate(0deg); }
+    25% { transform: translate(1px, -1px) rotate(0.8deg); }
+    50% { transform: translate(-1px, 1px) rotate(-0.8deg); }
+    75% { transform: translate(1px, 1px) rotate(0.8deg); }
+  }
+  @keyframes pochitaBarkThrottle {
+    0%, 100% { transform: translate(0, 0) scale(1.08); }
+    15% { transform: translate(2px, -3px) rotate(4deg) scale(1.1); }
+    45% { transform: translate(-3px, 2px) rotate(-4deg) scale(1.12); }
+    75% { transform: translate(2px, 3px) rotate(3deg) scale(1.1); }
+  }
+  @keyframes catFidget {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    50% { transform: translateY(-4px) rotate(-1deg); }
+  }
+  @keyframes tailTwitch {
+    0%, 100% { transform: rotate(0deg); }
+    50% { transform: rotate(-18deg); }
+  }
+  @keyframes doraemonRoll {
+    0%, 100% { transform: rotate(0deg) translateY(0px); }
+    50% { transform: rotate(5deg) translateY(-5px); }
+  }
+  @keyframes doramiRoll {
+    0%, 100% { transform: rotate(0deg) translateY(0px); }
+    50% { transform: rotate(-5deg) translateY(-4px); }
+  }
+  @keyframes shinchandance {
+    0%, 100% { transform: translateX(0) rotate(0deg); }
+    25% { transform: translateX(-5px) rotate(-3deg); }
+    50% { transform: translateX(5px) rotate(3deg); }
+    75% { transform: translateX(-2px) rotate(-1.5deg); }
+  }
+  @keyframes shinchanBarkdance {
+    0%, 100% { transform: rotate(0deg) scale(1.12); }
+    20% { transform: rotate(10deg) scale(1.15) translate(-3px, -2px); }
+    40% { transform: rotate(-10deg) scale(1.15) translate(3px, 2px); }
+    60% { transform: rotate(10deg) scale(1.15) translate(-3px, 2px); }
+    80% { transform: rotate(-10deg) scale(1.15) translate(3px, -2px); }
+  }
+  @keyframes pikachuVolt {
+    0%, 100% { transform: scale(1) translate(0, 0); }
+    20% { transform: scale(1.05) translate(-1px, 1px); }
+    40% { transform: scale(1.03) translate(1.5px, -1px); }
+    60% { transform: scale(1.06) translate(-1px, -1.5px); }
+    80% { transform: scale(1.04) translate(1px, 1px); }
+  }
+  @keyframes wingFlapL {
+    0%, 100% { transform: rotate(0deg); }
+    50% { transform: rotate(-12deg); }
+  }
+  @keyframes wingFlapR {
+    0%, 100% { transform: rotate(0deg); }
+    50% { transform: rotate(12deg); }
+  }
+  @keyframes puffPuff {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.07); }
+  }
+  @keyframes earWiggleL {
+    0%, 100% { transform: rotate(0deg); }
+    50% { transform: rotate(-8deg); }
+  }
+  @keyframes earWiggleR {
+    0%, 100% { transform: rotate(0deg); }
+    50% { transform: rotate(8deg); }
+  }
+  .animate-pet-float { animation: petFloat 3s ease-in-out infinite; }
+  .animate-mew-ethereal { animation: petMewEthereal 3.5s ease-in-out infinite; }
+  .animate-pochita-throttle { animation: pochitaThrottle 0.3s linear infinite; }
+  .animate-pochita-bark-throttle { animation: pochitaBarkThrottle 0.12s linear infinite; }
+  .animate-cat-fidget { animation: catFidget 2s ease-in-out infinite; }
+  .animate-tail-twitch { animation: tailTwitch 1s ease-in-out infinite; }
+  .animate-doraemon-roll { animation: doraemonRoll 2s ease-in-out infinite; }
+  .animate-dorami-roll { animation: doramiRoll 2s ease-in-out infinite; }
+  .animate-shinchan-dance { animation: shinchandance 1.5s ease-in-out infinite; }
+  .animate-shinchan-bark-dance { animation: shinchanBarkdance 0.4s linear infinite; }
+  .animate-pikachu-volt { animation: pikachuVolt 0.15s linear infinite; }
+  .animate-wing-flap-l { animation: wingFlapL 0.8s ease-in-out infinite; }
+  .animate-wing-flap-r { animation: wingFlapR 0.8s ease-in-out infinite; }
+  .animate-shiro-puff { animation: puffPuff 2.5s ease-in-out infinite; }
+  .animate-ear-wiggle-l { animation: earWiggleL 0.8s ease-in-out infinite; }
+  .animate-ear-wiggle-r { animation: earWiggleR 0.8s ease-in-out infinite; }
+`;
+
+export const PetAvatarRenderer: React.FC<PetAvatarRendererProps> = ({ 
+  petId, 
+  className, 
+  xp = 0,
+  expression = 'normal',
+  isBarking = false,
+  timerRunning = false
+}) => {
   // Level Logic based on XP
   const level = xp >= 15000 ? 5 : xp >= 5000 ? 4 : xp >= 2000 ? 3 : xp >= 500 ? 2 : 1;
   const hasChainsaw = level >= 3;
@@ -18,8 +123,9 @@ export const PetAvatarRenderer: React.FC<PetAvatarRendererProps> = ({ petId, cla
     return (
       <svg 
         viewBox="0 0 110 90" 
-        className={cn("w-full h-full object-contain select-none", className)}
+        className={cn("w-full h-full object-contain select-none", isBarking ? "animate-pochita-bark-throttle" : "animate-cat-fidget", className)}
       >
+        <style>{STYLE_BLOCK}</style>
         {/* Shadow */}
         <ellipse cx="55" cy="82" rx="28" ry="4" fill="black" opacity="0.15" />
 
@@ -50,6 +156,8 @@ export const PetAvatarRenderer: React.FC<PetAvatarRendererProps> = ({ petId, cla
           stroke="#fcb045" 
           strokeWidth="5.5" 
           strokeLinecap="round" 
+          style={{ transformOrigin: '28px 62px' }}
+          className="animate-tail-twitch"
         />
 
         {/* Face Details */}
@@ -80,8 +188,9 @@ export const PetAvatarRenderer: React.FC<PetAvatarRendererProps> = ({ petId, cla
     return (
       <svg 
         viewBox="0 0 110 90" 
-        className={cn("w-full h-full object-contain select-none", className)}
+        className={cn("w-full h-full object-contain select-none", isBarking ? "animate-pochita-bark-throttle" : "animate-pet-float", className)}
       >
+        <style>{STYLE_BLOCK}</style>
         {/* Shadow */}
         <ellipse cx="55" cy="82" rx="30" ry="4" fill="black" opacity="0.15" />
 
@@ -119,11 +228,13 @@ export const PetAvatarRenderer: React.FC<PetAvatarRendererProps> = ({ petId, cla
 
   // Devil Pochita / Hero of Hell / Angel Demon
   if (petId === 'pet_pochita_hero' || petId === 'pet_angel_devil' || petId === 'pet_pochita_dark') {
+    const isPochitaBarking = isBarking;
     return (
       <svg 
         viewBox="0 0 100 85" 
-        className={cn("w-full h-full object-contain select-none", className)}
+        className={cn("w-full h-full object-contain select-none", isPochitaBarking ? "animate-pochita-bark-throttle" : (timerRunning ? "animate-pochita-throttle" : "hover:animate-pochita-throttle"), className)}
       >
+        <style>{STYLE_BLOCK}</style>
         {/* Shadow */}
         <ellipse cx="50" cy="78" rx="26" ry="4.5" fill="black" opacity="0.3" />
 
@@ -172,8 +283,9 @@ export const PetAvatarRenderer: React.FC<PetAvatarRendererProps> = ({ petId, cla
     return (
       <svg 
         viewBox="0 0 100 85" 
-        className={cn("w-full h-full object-contain select-none", className)}
+        className={cn("w-full h-full object-contain select-none", isBarking ? "animate-pikachu-volt" : "animate-cat-fidget", className)}
       >
+        <style>{STYLE_BLOCK}</style>
         {/* Shadow */}
         <ellipse cx="50" cy="78" rx="28" ry="4" fill="black" opacity="0.15" />
 
@@ -217,16 +329,29 @@ export const PetAvatarRenderer: React.FC<PetAvatarRendererProps> = ({ petId, cla
     return (
       <svg 
         viewBox="0 0 100 85" 
-        className={cn("w-full h-full object-contain select-none", className)}
+        className={cn("w-full h-full object-contain select-none", isBarking ? "animate-pochita-bark-throttle" : "animate-pet-float", className)}
       >
+        <style>{STYLE_BLOCK}</style>
         {/* Shadow */}
         <ellipse cx="50" cy="78" rx="28" ry="4" fill="black" opacity="0.15" />
 
-        {/* Dragon Wings */}
-        <path d="M20 40 L5 25 C0 15, 10 20, 20 34" fill="#3dc1d3" stroke="#000" strokeWidth="1.5" />
-        <path d="M20 40 L5 25 C0 15, 10 20, 20 34" fill="#e66767" opacity="0.3" />
-        <path d="M80 40 L95 25 C100 15, 90 20, 80 34" fill="#3dc1d3" stroke="#000" strokeWidth="1.5" />
-        <path d="M80 40 L95 25 C100 15, 90 20, 80 34" fill="#e66767" opacity="0.3" />
+        {/* Dragon Wings with wing-flaps */}
+        <path 
+          d="M20 40 L5 25 C0 15, 10 20, 20 34" 
+          fill="#3dc1d3" 
+          stroke="#000" 
+          strokeWidth="1.5" 
+          style={{ transformOrigin: '20px 40px' }}
+          className="animate-wing-flap-l" 
+        />
+        <path 
+          d="M80 40 L95 25 C100 15, 90 20, 80 34" 
+          fill="#3dc1d3" 
+          stroke="#000" 
+          strokeWidth="1.5" 
+          style={{ transformOrigin: '80px 40px' }}
+          className="animate-wing-flap-r" 
+        />
 
         {/* Tail */}
         <path d="M25 58 C15 58 10 45 4 48" fill="none" stroke="#e66767" strokeWidth="5" strokeLinecap="round" />
@@ -260,8 +385,9 @@ export const PetAvatarRenderer: React.FC<PetAvatarRendererProps> = ({ petId, cla
     return (
       <svg 
         viewBox="0 0 100 85" 
-        className={cn("w-full h-full object-contain select-none", className)}
+        className={cn("w-full h-full object-contain select-none", isBarking ? "animate-shinchan-bark-dance" : "animate-pet-float", className)}
       >
+        <style>{STYLE_BLOCK}</style>
         {/* Shadow */}
         <ellipse cx="50" cy="78" rx="22" ry="3.5" fill="black" opacity="0.2" />
 
@@ -297,8 +423,9 @@ export const PetAvatarRenderer: React.FC<PetAvatarRendererProps> = ({ petId, cla
     return (
       <svg 
         viewBox="0 0 100 85" 
-        className={cn("w-full h-full object-contain select-none", className)}
+        className={cn("w-full h-full object-contain select-none", isBarking ? "animate-pochita-bark-throttle" : "animate-shiro-puff", className)}
       >
+        <style>{STYLE_BLOCK}</style>
         {/* Shadow */}
         <ellipse cx="50" cy="78" rx="28" ry="4" fill="black" opacity="0.15" />
 
@@ -333,13 +460,426 @@ export const PetAvatarRenderer: React.FC<PetAvatarRendererProps> = ({ petId, cla
     );
   }
 
+  // Doraemon
+  if (petId === 'pet_doraemon') {
+    return (
+      <svg 
+        viewBox="0 0 100 85" 
+        className={cn("w-full h-full object-contain select-none", isBarking ? "animate-shinchan-bark-dance" : "animate-doraemon-roll", className)}
+      >
+        <style>{STYLE_BLOCK}</style>
+        {/* Shadow */}
+        <ellipse cx="50" cy="78" rx="26" ry="4" fill="black" opacity="0.15" />
+        {/* Blue body/head (Doraemon is round) */}
+        <circle cx="50" cy="45" r="28" fill="#0096e6" stroke="#000" strokeWidth="1.5" />
+        {/* White face */}
+        <circle cx="50" cy="48" r="21" fill="#ffffff" stroke="#000" strokeWidth="1.2" />
+        {/* Large compound eyes */}
+        <ellipse cx="44" cy="36" rx="6" ry="8" fill="#ffffff" stroke="#000" strokeWidth="1.2" />
+        <ellipse cx="56" cy="36" rx="6" ry="8" fill="#ffffff" stroke="#000" strokeWidth="1.2" />
+        {/* Pupils */}
+        <circle cx={isBarking ? 45 : 44.5} cy="36" r="2" fill="#000000" />
+        <circle cx={isBarking ? 55 : 55.5} cy="36" r="2" fill="#000000" />
+        <circle cx={isBarking ? 44 : 45} cy="35" r="0.7" fill="#ffffff" />
+        <circle cx={isBarking ? 56 : 56} cy="35" r="0.7" fill="#ffffff" />
+        {/* Red nose */}
+        <circle cx="50" cy="43" r="3.5" fill="#f03e3e" stroke="#000" strokeWidth="1" />
+        <circle cx="48.5" cy="41.5" r="1" fill="#ffffff" />
+        {/* White belly pouch */}
+        <path d="M33 54 C33 66, 67 66, 67 54 Z" fill="#ffffff" stroke="#000" strokeWidth="1" />
+        {/* 4D Pocket */}
+        <path d="M38 56 C38 64, 62 64, 62 56 Z" fill="#ffffff" stroke="#000" strokeWidth="1" />
+        {/* Red collar and gold bell */}
+        <path d="M32 50 Q50 56 68 50" fill="none" stroke="#e03131" strokeWidth="3" strokeLinecap="round" />
+        <circle cx="50" cy="54" r="4.5" fill="#fcc419" stroke="#000" strokeWidth="1" />
+        <circle cx="50" cy="54" r="1" fill="#000" />
+        <line x1="50" y1="55" x2="50" y2="58.5" stroke="#000" strokeWidth="1" />
+        {/* Mouth/Smile & Whiskers */}
+        <line x1="50" y1="46.5" x2="50" y2="52" stroke="#000" strokeWidth="1" />
+        {isBarking || expression === 'happy' ? (
+          <path d="M42 50 Q50 58 58 50 Z" fill="#e03131" stroke="#000" strokeWidth="1.2" />
+        ) : (
+          <path d="M38 48 Q50 56 62 48" fill="none" stroke="#000" strokeWidth="1.2" strokeLinecap="round" />
+        )}
+        {/* Whiskers */}
+        <line x1="41" y1="44" x2="31" y2="42" stroke="#000" strokeWidth="1" />
+        <line x1="41" y1="48" x2="30" y2="48" stroke="#000" strokeWidth="1" />
+        <line x1="41" y1="52" x2="31" y2="54" stroke="#000" strokeWidth="1" />
+        <line x1="59" y1="44" x2="69" y2="42" stroke="#000" strokeWidth="1" />
+        <line x1="59" y1="48" x2="70" y2="48" stroke="#000" strokeWidth="1" />
+        <line x1="59" y1="52" x2="69" y2="54" stroke="#000" strokeWidth="1" />
+      </svg>
+    );
+  }
+
+  // Dorami
+  if (petId === 'pet_dorami') {
+    return (
+      <svg 
+        viewBox="0 0 100 85" 
+        className={cn("w-full h-full object-contain select-none", isBarking ? "animate-pochita-bark-throttle" : "animate-dorami-roll", className)}
+      >
+        <style>{STYLE_BLOCK}</style>
+        {/* Shadow */}
+        <ellipse cx="50" cy="78" rx="26" ry="4" fill="black" opacity="0.15" />
+        {/* Yellow body/head */}
+        <circle cx="50" cy="45" r="27" fill="#ffd43b" stroke="#000" strokeWidth="1.5" />
+        {/* White face */}
+        <circle cx="50" cy="48" r="20" fill="#ffffff" stroke="#000" strokeWidth="1.2" />
+        {/* Head Ribbon Bow (Dorami has matching ears like bow) */}
+        <path d="M36 21 C28 15, 34 8, 45 18 Z" fill="#f03e3e" stroke="#000" strokeWidth="1.2" />
+        <path d="M64 21 C72 15, 66 8, 55 18 Z" fill="#f03e3e" stroke="#000" strokeWidth="1.2" />
+        <circle cx="50" cy="18" r="4.5" fill="#f03e3e" />
+        {/* Sparkly Blue Eyes */}
+        <ellipse cx="44" cy="36" rx="5.5" ry="7" fill="#ffffff" stroke="#000" strokeWidth="1" />
+        <ellipse cx="56" cy="36" rx="5.5" ry="7" fill="#ffffff" stroke="#000" strokeWidth="1" />
+        <circle cx="44.5" cy="36" r="3" fill="#1c7ed6" />
+        <circle cx="55.5" cy="36" r="3" fill="#1c7ed6" />
+        <circle cx="43.5" cy="34.5" r="1" fill="#ffffff" />
+        <circle cx="54.5" cy="34.5" r="1" fill="#ffffff" />
+        {/* Nose and cheeks */}
+        <circle cx="50" cy="42" r="2.5" fill="#fcc419" stroke="#000" strokeWidth="0.8" />
+        <circle cx="38" cy="46" r="2.5" fill="#ff8787" opacity="0.5" />
+        <circle cx="62" cy="46" r="2.5" fill="#ff8787" opacity="0.5" />
+        {/* Tiny ribbon/collar and bell */}
+        <path d="M34 51 Q50 56 66 51" fill="none" stroke="#228be6" strokeWidth="2.5" strokeLinecap="round" />
+        <circle cx="50" cy="54" r="4" fill="#fcc419" stroke="#000" strokeWidth="1" />
+        {/* Pocket */}
+        <path d="M36 54 C36 64, 64 64, 64 54 Z" fill="#ffffff" stroke="#000" strokeWidth="1" />
+        {/* Whiskers */}
+        <line x1="39" y1="31" x2="36" y2="28" stroke="#000" strokeWidth="1" />
+        <line x1="61" y1="31" x2="64" y2="28" stroke="#000" strokeWidth="1" />
+        <path d="M42 48 Q50 54 58 48" fill="none" stroke="#000" strokeWidth="1.2" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  // Shiro
+  if (petId === 'pet_shiro') {
+    return (
+      <svg 
+        viewBox="0 0 100 85" 
+        className={cn("w-full h-full object-contain select-none", isBarking ? "animate-pochita-bark-throttle" : "animate-shiro-puff", className)}
+      >
+        <style>{STYLE_BLOCK}</style>
+        {/* Shadow */}
+        <ellipse cx="50" cy="78" rx="28" ry="4" fill="black" opacity="0.12" />
+        {/* Fluffy white cotton body */}
+        <g stroke="#000" strokeWidth="1.5" fill="#ffffff" strokeLinejoin="round">
+          {/* Paw outlines / feet */}
+          <circle cx="38" cy="72" r="7" />
+          <circle cx="62" cy="72" r="7" />
+          {/* Main cloud structure */}
+          <circle cx="32" cy="52" r="16" />
+          <circle cx="68" cy="52" r="16" />
+          <circle cx="50" cy="36" r="18" />
+          <circle cx="50" cy="54" r="19" />
+          <circle cx="34" cy="38" r="14" />
+          <circle cx="66" cy="38" r="14" />
+        </g>
+        {/* Cover inner lines of overlapping circles with clean white fills */}
+        <circle cx="50" cy="48" r="23" fill="#ffffff" />
+        <circle cx="38" cy="50" r="14" fill="#ffffff" />
+        <circle cx="62" cy="50" r="14" fill="#ffffff" />
+        <circle cx="50" cy="36" r="17" fill="#ffffff" />
+        {/* Fluffy ears with wiggles */}
+        <ellipse 
+          cx="23" 
+          cy="34" 
+          rx="7" 
+          ry="10" 
+          fill="#ffffff" 
+          stroke="#000" 
+          strokeWidth="1.5" 
+          transform="rotate(-15, 23, 34)" 
+          style={{ transformOrigin: "23px 34px" }}
+          className="animate-ear-wiggle-l"
+        />
+        <ellipse 
+          cx="77" 
+          cy="34" 
+          rx="7" 
+          ry="10" 
+          fill="#ffffff" 
+          stroke="#000" 
+          strokeWidth="1.5" 
+          transform="rotate(15, 77, 34)" 
+          style={{ transformOrigin: "77px 34px" }}
+          className="animate-ear-wiggle-r"
+        />
+        {/* Red collar line */}
+        <path d="M38 60 Q50 66 62 60" fill="none" stroke="#ff4d4d" strokeWidth="4.5" strokeLinecap="round" />
+        <circle cx="50" cy="64" r="3.5" fill="#ffd32a" stroke="#000" strokeWidth="1" />
+        {/* Cute shiro face details */}
+        <ellipse cx="41" cy="40" rx="3.5" ry="4.5" fill="#1e293b" />
+        <ellipse cx="59" cy="40" rx="3.5" ry="4.5" fill="#1e293b" />
+        <circle cx="42" cy="38.5" r="1" fill="#ffffff" />
+        <circle cx="60" cy="38.5" r="1" fill="#ffffff" />
+        {/* Shiro black nose */}
+        <ellipse cx="50" cy="46" rx="3" ry="2" fill="#000" />
+        {/* Mouth */}
+        {isBarking ? (
+          <circle cx="50" cy="53" r="3" fill="#000" />
+        ) : (
+          <path d="M47 50 Q50 53 53 50" fill="none" stroke="#1e293b" strokeWidth="1.5" strokeLinecap="round" />
+        )}
+      </svg>
+    );
+  }
+
+  // Shinchan
+  if (petId === 'pet_shinchan') {
+    return (
+      <svg 
+        viewBox="0 0 100 85" 
+        className={cn("w-full h-full object-contain select-none", isBarking ? "animate-shinchan-bark-dance" : "animate-shinchan-dance", className)}
+      >
+        <style>{STYLE_BLOCK}</style>
+        {/* Shadow */}
+        <ellipse cx="50" cy="78" rx="25" ry="3.5" fill="black" opacity="0.15" />
+        {/* Body (Red shirt with yellow pants) */}
+        <rect x="34" y="52" width="32" height="18" rx="4" fill="#fa3e3e" stroke="#000" strokeWidth="1.5" />
+        <rect x="36" y="66" width="28" height="8" fill="#ffde39" stroke="#000" strokeWidth="1.5" />
+        {/* Legs / Shoes */}
+        <ellipse cx="42" cy="75" rx="5" ry="4" fill="#ffffff" stroke="#000" strokeWidth="1.5" />
+        <ellipse cx="58" cy="75" rx="5" ry="4" fill="#ffffff" stroke="#000" strokeWidth="1.5" />
+        {/* Head (Shinchan's iconic potato-shaped head) */}
+        <path d="M28 42 C24 38, 22 28, 38 22 C52 16, 72 20, 72 32 C72 40, 68 46, 52 48 C42 49, 32 46, 28 42 Z" fill="#fcdbb0" stroke="#000" strokeWidth="1.5" strokeLinejoin="round" />
+        {/* Cheek bulbous expand (left side bulging) */}
+        <ellipse cx="28" cy="40" rx="6" ry="5" fill="#fcdbb0" />
+        <ellipse cx="28" cy="40" rx="4" ry="3.5" fill="#ff8b94" opacity="0.4" />
+        {/* Thick black eyebrows */}
+        <path d="M35 19 C38 15, 45 16, 48 18" fill="none" stroke="#000" strokeWidth="3.5" strokeLinecap="round" />
+        <path d="M56 19 C59 15, 66 16, 69 18" fill="none" stroke="#000" strokeWidth="3.5" strokeLinecap="round" />
+        {/* Eyes (Iconic round side eyes looking askance) */}
+        <circle cx="43" cy="28" r="5.5" fill="#ffffff" stroke="#000" strokeWidth="1.2" />
+        <circle cx="61" cy="28" r="5.5" fill="#ffffff" stroke="#000" strokeWidth="1.2" />
+        <ellipse cx="44.5" cy="28" rx="3.5" ry="4" fill="#000000" />
+        <ellipse cx="59.5" cy="28" rx="3.5" ry="4" fill="#000000" />
+        <circle cx="44" cy="26.5" r="1.2" fill="#ffffff" />
+        <circle cx="59" cy="26.5" r="1.2" fill="#ffffff" />
+        {/* Mouth/Mischievous Grin */}
+        {isBarking ? (
+          <ellipse cx="48" cy="40" rx="4.5" ry="6" fill="#e03e3e" stroke="#000" strokeWidth="1.5" />
+        ) : (
+          <path d="M42 38 Q48 44 54 38" fill="none" stroke="#000" strokeWidth="2.0" strokeLinecap="round" />
+        )}
+        {/* Ears */}
+        <ellipse cx="71" cy="34" rx="4.5" ry="6" fill="#fcdbb0" stroke="#000" strokeWidth="1" />
+        <path d="M70 32 Q68 34 71 36" fill="none" stroke="#000" strokeWidth="0.8" />
+      </svg>
+    );
+  }
+
+  // Eevee
+  if (petId === 'pet_eevee') {
+    return (
+      <svg 
+        viewBox="0 0 100 85" 
+        className={cn("w-full h-full object-contain select-none", isBarking ? "animate-pochita-bark-throttle" : "animate-cat-fidget", className)}
+      >
+        <style>{STYLE_BLOCK}</style>
+        {/* Shadow */}
+        <ellipse cx="50" cy="78" rx="26" ry="4" fill="black" opacity="0.15" />
+        {/* Body */}
+        <ellipse cx="50" cy="55" rx="19" ry="17" fill="#b17a4c" stroke="#000" strokeWidth="1.5" />
+        {/* Huge Rabbit-like Ears with wiggles */}
+        <path 
+          d="M38 31 L20 4 C17 0, 10 10, 28 26" 
+          fill="#b17a4c" 
+          stroke="#000" 
+          strokeWidth="1.5" 
+          strokeLinejoin="round" 
+          style={{ transformOrigin: "38px 31px" }}
+          className="animate-ear-wiggle-l"
+        />
+        <path 
+          d="M62 31 L80 4 C83 0, 90 10, 72 26" 
+          fill="#b17a4c" 
+          stroke="#000" 
+          strokeWidth="1.5" 
+          strokeLinejoin="round" 
+          style={{ transformOrigin: "62px 31px" }}
+          className="animate-ear-wiggle-r"
+        />
+        {/* Fluffy Cream Neck Ruff */}
+        <path d="M28 54 C28 44, 34 38, 50 38 C66 38, 72 44, 72 54 C72 64, 28 64, 28 54" fill="#f5eedc" stroke="#000" strokeWidth="1.5" />
+        <polygon points="32,54 50,68 68,54 50,56" fill="#f5eedc" stroke="#000" strokeWidth="1" />
+        <polygon points="36,46 50,52 64,46 50,42" fill="#f5eedc" />
+        {/* Eyes */}
+        <ellipse cx="40" cy="44" rx="4.5" ry="6.5" fill="#2d1c0b" />
+        <ellipse cx="60" cy="44" rx="4.5" ry="6.5" fill="#2d1c0b" />
+        <ellipse cx="40" cy="41" rx="2" ry="3.2" fill="#fff" />
+        <ellipse cx="60" cy="41" rx="2" ry="3.2" fill="#fff" />
+        <path d="M38 48 C40 49, 42 48, 42 48" stroke="#ffffff" strokeWidth="1" strokeLinecap="round" />
+        <path d="M58 48 C60 49, 62 48, 62 48" stroke="#ffffff" strokeWidth="1" strokeLinecap="round" />
+        {/* Nose */}
+        <polygon points="50,48 48,46 52,46" fill="#000" />
+        {/* Mouth */}
+        {isBarking ? (
+          <circle cx="50" cy="53" r="2.5" fill="#ffa1a1" stroke="#000" strokeWidth="1" />
+        ) : (
+          <path d="M47 51 Q50 53 53 51" fill="none" stroke="#000" strokeWidth="1.2" strokeLinecap="round" />
+        )}
+        {/* Cute cheeks */}
+        <circle cx="34" cy="49" r="2" fill="#ffccd5" opacity="0.6" />
+        <circle cx="66" cy="49" r="2" fill="#ffccd5" opacity="0.6" />
+      </svg>
+    );
+  }
+
+  // Mew
+  if (petId === 'pet_mew') {
+    return (
+      <svg 
+        viewBox="0 0 100 85" 
+        className={cn("w-full h-full object-contain select-none", isBarking ? "animate-pochita-bark-throttle" : "animate-mew-ethereal", className)}
+      >
+        <style>{STYLE_BLOCK}</style>
+        {/* Shadow */}
+        <ellipse cx="50" cy="78" rx="20" ry="3.5" fill="black" opacity="0.1" />
+        {/* Tail */}
+        <path d="M32 60 C8 58, 4 36, 12 28 C20 20, 36 24, 28 42" fill="none" stroke="#fda7df" strokeWidth="3" strokeLinecap="round" />
+        <circle cx="28" cy="42" r="3.5" fill="#fda7df" />
+        {/* Soft Pink Body */}
+        <ellipse cx="50" cy="54" rx="22" ry="18" fill="#fda7df" stroke="#d870ad" strokeWidth="1.2" />
+        {/* Cute Baby Ears with subtle wiggles */}
+        <polygon 
+          points="34,31 24,18 40,24" 
+          fill="#fda7df" 
+          stroke="#d870ad" 
+          strokeWidth="1.2" 
+          style={{ transformOrigin: "34px 31px" }}
+          className="animate-ear-wiggle-l"
+        />
+        <polygon 
+          points="66,31 76,18 60,24" 
+          fill="#fda7df" 
+          stroke="#d870ad" 
+          strokeWidth="1.2" 
+          style={{ transformOrigin: "66px 31px" }}
+          className="animate-ear-wiggle-r"
+        />
+        {/* Big Bright Blue Eyes */}
+        <ellipse cx="42" cy="40" rx="5" ry="7" fill="#ffffff" stroke="#c2428c" strokeWidth="1" />
+        <ellipse cx="58" cy="40" rx="5" ry="7" fill="#ffffff" stroke="#c2428c" strokeWidth="1" />
+        <ellipse cx="42.5" cy="40" rx="3.5" ry="5.5" fill="#00a8ff" />
+        <ellipse cx="57.5" cy="40" rx="3.5" ry="5.5" fill="#00a8ff" />
+        <circle cx="41.5" cy="37.5" r="1.5" fill="#ffffff" />
+        <circle cx="56.5" cy="37.5" r="1.5" fill="#ffffff" />
+        {/* Cute mouth and cheeks */}
+        <circle cx="34" cy="47" r="2.5" fill="#ffffff" opacity="0.4" />
+        <circle cx="66" cy="47" r="2.5" fill="#ffffff" opacity="0.4" />
+        {isBarking ? (
+          <circle cx="50" cy="47" r="2" fill="#d870ad" />
+        ) : (
+          <path d="M48 46 Q50 48 52 46" fill="none" stroke="#2d1c0b" strokeWidth="1" strokeLinecap="round" />
+        )}
+        {/* Tiny paws */}
+        <ellipse cx="42" cy="70" rx="3" ry="5" fill="#fda7df" stroke="#d870ad" strokeWidth="1" />
+        <ellipse cx="58" cy="70" rx="3" ry="5" fill="#fda7df" stroke="#d870ad" strokeWidth="1" />
+      </svg>
+    );
+  }
+
+  // Cerberus
+  if (petId === 'pet_demon_cerberus') {
+    return (
+      <svg 
+        viewBox="0 0 100 85" 
+        className={cn("w-full h-full object-contain select-none", isBarking ? "animate-pochita-bark-throttle" : "animate-pet-float", className)}
+      >
+        <style>{STYLE_BLOCK}</style>
+        {/* Shadow */}
+        <ellipse cx="50" cy="78" rx="26" ry="4" fill="black" opacity="0.25" />
+        {/* Main Body */}
+        <rect x="25" y="44" width="50" height="28" rx="14" fill="#2d3436" stroke="#ea2027" strokeWidth="1.2" />
+        {/* Back Head */}
+        <circle cx="34" cy="34" r="12" fill="#2d3436" stroke="#ea2027" strokeWidth="1.2" />
+        {/* Left Ears */}
+        <polygon points="24,28 20,16 30,24" fill="#2d3436" stroke="#000" strokeWidth="1" />
+        {/* Front Center Head */}
+        <circle cx="50" cy="38" r="13" fill="#2d3436" stroke="#ea2027" strokeWidth="1.2" />
+        {/* Ears */}
+        <polygon points="40,30 38,18 46,26" fill="#2d3436" stroke="#000" strokeWidth="1" />
+        <polygon points="60,30 62,18 54,26" fill="#2d3436" stroke="#000" strokeWidth="1" />
+        {/* Right Head */}
+        <circle cx="66" cy="34" r="12" fill="#2d3436" stroke="#ea2027" strokeWidth="1.2" />
+        {/* Right Ears */}
+        <polygon points="76,28 80,16 70,24" fill="#2d3436" stroke="#000" strokeWidth="1" />
+        {/* Glowing Fire Eyes */}
+        <g fill="#f1c40f">
+          <circle cx="30" cy="33" r="1.5" />
+          <circle cx="38" cy="33" r="1.5" />
+          <ellipse cx="46" cy="36" rx="2" ry="1.5" />
+          <ellipse cx="54" cy="36" rx="2" ry="1.5" />
+          <circle cx="62" cy="33" r="1.5" />
+          <circle cx="70" cy="33" r="1.5" />
+        </g>
+        {/* Snouts */}
+        <g fill="#000">
+          <circle cx="34" cy="38" r="1.5" />
+          <circle cx="50" cy="42" r="2.0" />
+          <circle cx="66" cy="38" r="1.5" />
+        </g>
+        {/* Fangs */}
+        <polygon points="48,43 49,46 50,43" fill="#fff" />
+        <polygon points="52,43 51,46 50,43" fill="#fff" />
+        {/* Fire tail */}
+        <path d="M74 54 Q85 52 82 40" fill="none" stroke="#2d3436" strokeWidth="3" />
+        <circle cx="82" cy="40" r="3.5" fill="#f39c12" />
+        <circle cx="82" cy="40" r="2" fill="#e67e22" />
+      </svg>
+    );
+  }
+
+  // Cyber-Pup
+  if (petId === 'pet_cyber_pup') {
+    return (
+      <svg 
+        viewBox="0 0 100 85" 
+        className={cn("w-full h-full object-contain select-none", isBarking ? "animate-pochita-bark-throttle" : "animate-shiro-puff", className)}
+      >
+        <style>{STYLE_BLOCK}</style>
+        {/* Shadow */}
+        <ellipse cx="50" cy="78" rx="24" ry="4" fill="#00ffe0" opacity="0.15" />
+        <ellipse cx="50" cy="78" rx="18" ry="3.5" fill="#000" opacity="0.3" />
+        {/* Metal Body */}
+        <rect x="24" y="38" width="52" height="34" rx="12" fill="#353b48" stroke="#00ffe0" strokeWidth="1.5" />
+        {/* Chrome robotic plate joints */}
+        <line x1="38" y1="38" x2="38" y2="72" stroke="#10ac84" strokeWidth="1" opacity="0.6" strokeDasharray="1 1" />
+        <line x1="62" y1="38" x2="62" y2="72" stroke="#10ac84" strokeWidth="1" opacity="0.6" strokeDasharray="1 1" />
+        {/* Cyber Neon ears */}
+        <polygon points="32,24 18,8 30,26" fill="#353b48" stroke="#00ffe0" strokeWidth="1.5" />
+        <polygon points="28,21 21,11 28,21" fill="#00ffe0" />
+        <polygon points="68,24 82,8 70,26" fill="#353b48" stroke="#00ffe0" strokeWidth="1.5" />
+        <polygon points="72,21 79,11 72,21" fill="#00ffe0" />
+        {/* Glowing Cyan Goggles/Visor */}
+        <rect x="32" y="32" width="36" height="11" rx="5.5" fill="#1e272e" stroke="#00ffe0" strokeWidth="1.5" />
+        <rect x="35" y="35" width="30" height="5" rx="2.5" fill="#00ffe0" />
+        {/* Neon HUD line */}
+        <line x1="37" y1="37.5" x2="63" y2="37.5" stroke="#ffffff" strokeWidth="1.2" strokeDasharray="3 2" />
+        {/* Tech markings */}
+        <path d="M42 54 L58 54 M50 54 L50 64" stroke="#ff007f" strokeWidth="1.2" strokeLinecap="round" />
+        <circle cx="50" cy="64" r="2" fill="#ff007f" />
+        {/* Cyber antennas / tail */}
+        <path d="M74 48 L86 36" stroke="#00ffe0" strokeWidth="2.5" strokeLinecap="round" />
+        <circle cx="86" cy="36" r="3.5" fill="#ff007f" />
+        {/* Metallic feet */}
+        <rect x="32" y="72" width="8" height="6" rx="2" fill="#2f3640" stroke="#00ffe0" strokeWidth="1.2" />
+        <rect x="60" y="72" width="8" height="6" rx="2" fill="#2f3640" stroke="#00ffe0" strokeWidth="1.2" />
+      </svg>
+    );
+  }
+
   // Classic Pochita
   if (!petId || petId === 'pet_pochita_og') {
     return (
       <svg 
         viewBox="0 0 100 85" 
-        className={cn("w-full h-full object-contain select-none", className)}
+        className={cn("w-full h-full object-contain select-none", isBarking ? "animate-pochita-bark-throttle" : (timerRunning ? "animate-pochita-throttle" : "hover:animate-pochita-throttle"), className)}
       >
+        <style>{STYLE_BLOCK}</style>
         <ellipse cx="50" cy="78" rx="25" ry="4" fill="black" opacity="0.15" />
         <rect x="20" y="32" width="65" height="42" rx="21" fill={bodyColor} />
         <circle cx="80" cy="53" r="14" fill={bodyColor} />

@@ -123,6 +123,11 @@ export const CinematicOnboarding: React.FC<OnboardingProps> = ({ onComplete }) =
          placeholder="ENTER NAME..."
          value={formData.displayName}
          onChange={(e) => setFormData(prev => ({ ...prev, displayName: e.target.value }))}
+         onKeyDown={(e) => {
+           if (e.key === 'Enter' && formData.displayName) {
+             onComplete(formData);
+           }
+         }}
          className="w-full bg-transparent border-b-4 border-white/10 text-center text-4xl font-display font-black text-white placeholder:text-white/5 p-4 focus:border-md-primary focus:outline-none transition-all uppercase italic"
        />
 
